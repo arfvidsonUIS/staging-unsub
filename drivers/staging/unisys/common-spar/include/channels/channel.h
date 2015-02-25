@@ -319,8 +319,8 @@ spar_check_channel_client(void __iomem *ch,
 	}
 	if (expected_version > 0) {	/* caller wants us to verify
 					 * channel version */
-		unsigned long ver = readl(&((struct channel_header __iomem *)
-				    (ch))->version_id);
+		u32 ver = readl(&((struct channel_header __iomem *)
+				  (ch))->version_id);
 		if (ver != expected_version)
 			return 0;
 	}
