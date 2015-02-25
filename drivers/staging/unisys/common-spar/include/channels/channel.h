@@ -312,9 +312,8 @@ spar_check_channel_client(void __iomem *ch,
 	}
 	if (expected_min_bytes > 0) {	/* caller wants us to verify
 					 * channel size */
-		unsigned long long bytes =
-				readq(&((struct channel_header __iomem *)
-					(ch))->size);
+		u64 bytes = readq(&((struct channel_header __iomem *)
+				   (ch))->size);
 		if (bytes < expected_min_bytes)
 			return 0;
 	}
@@ -327,9 +326,8 @@ spar_check_channel_client(void __iomem *ch,
 	}
 	if (expected_signature > 0) {	/* caller wants us to verify
 					 * channel signature */
-		unsigned long long sig =
-				readq(&((struct channel_header __iomem *)
-					(ch))->signature);
+		u64 sig = readq(&((struct channel_header __iomem *)
+				  (ch))->signature);
 		if (sig != expected_signature)
 			return 0;
 	}
