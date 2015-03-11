@@ -35,7 +35,7 @@ extern int visorbus_forcenomatch;
 extern int visorbus_devicetest;
 extern int visorbus_debugref;
 extern int visorbus_serialloopbacktest;
-#define SERIALLOOPBACKCHANADDR (100*1024*1024)
+#define SERIALLOOPBACKCHANADDR (100 * 1024 * 1024)
 
 /** This is the private data that we store for each bus device instance.
  */
