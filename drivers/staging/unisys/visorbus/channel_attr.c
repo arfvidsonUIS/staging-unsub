@@ -40,7 +40,7 @@ struct channel_attribute {
 */
 static ssize_t DEVICECHANNEL_ATTR_physaddr(struct visor_device *dev, char *buf)
 {
-	if (dev->visorchannel == NULL)
+	if (!dev->visorchannel)
 		return 0;
 	return snprintf(buf, PAGE_SIZE, "0x%Lx\n",
 			visorchannel_get_physaddr(dev->visorchannel));
@@ -48,7 +48,7 @@ static ssize_t DEVICECHANNEL_ATTR_physaddr(struct visor_device *dev, char *buf)
 
 static ssize_t DEVICECHANNEL_ATTR_nbytes(struct visor_device *dev, char *buf)
 {
-	if (dev->visorchannel == NULL)
+	if (!dev->visorchannel)
 		return 0;
 	return snprintf(buf, PAGE_SIZE, "0x%lx\n",
 			visorchannel_get_nbytes(dev->visorchannel));
@@ -56,7 +56,7 @@ static ssize_t DEVICECHANNEL_ATTR_nbytes(struct visor_device *dev, char *buf)
 
 static ssize_t DEVICECHANNEL_ATTR_clientpartition(struct visor_device *dev,
 						  char *buf) {
-	if (dev->visorchannel == NULL)
+	if (!dev->visorchannel)
 		return 0;
 	return snprintf(buf, PAGE_SIZE, "0x%Lx\n",
 			visorchannel_get_clientpartition(dev->visorchannel));
@@ -66,7 +66,7 @@ static ssize_t DEVICECHANNEL_ATTR_typeguid(struct visor_device *dev, char *buf)
 {
 	char s[99];
 
-	if (dev->visorchannel == NULL)
+	if (!dev->visorchannel)
 		return 0;
 	return snprintf(buf, PAGE_SIZE, "%s\n",
 			visorchannel_id(dev->visorchannel, s));
@@ -76,7 +76,7 @@ static ssize_t DEVICECHANNEL_ATTR_zoneguid(struct visor_device *dev, char *buf)
 {
 	char s[99];
 
-	if (dev->visorchannel == NULL)
+	if (!dev->visorchannel)
 		return 0;
 	return snprintf(buf, PAGE_SIZE, "%s\n",
 			visorchannel_zoneid(dev->visorchannel, s));
@@ -89,7 +89,7 @@ static ssize_t DEVICECHANNEL_ATTR_typename(struct visor_device *dev, char *buf)
 	struct device_driver *xdrv = dev->device.driver;
 	struct visor_driver *drv = NULL;
 
-	if (dev->visorchannel == NULL || xbus == NULL || xdrv == NULL)
+	if (!dev->visorchannel || !xbus || !xdrv)
 		return 0;
 	i = xbus->match(&dev->device, xdrv);
 	if (!i)
@@ -186,7 +186,7 @@ int register_channel_attributes(struct visor_device *dev)
 
 	if (CHANNELATTR_DONTDOANYTHING)
 		goto away;
-	if (dev->kobjchannel.parent != NULL)
+	if (dev->kobjchannel.parent)
 		goto away;	/* already registered */
 	x = kobject_init_and_add(&dev->kobjchannel, &channel_kobj_type,
 				 &dev->device.kobj, "channel");
@@ -219,7 +219,7 @@ void unregister_channel_attributes(struct visor_device *dev)
 
 	if (CHANNELATTR_DONTDOANYTHING)
 		return;
-	if (dev->kobjchannel.parent == NULL)
+	if (!dev->kobjchannel.parent)
 		return;		/* already unregistered */
 	for (i = 0;
 	     i < sizeof(all_channel_attrs) / sizeof(struct channel_attribute);
