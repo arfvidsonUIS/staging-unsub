@@ -96,7 +96,7 @@ devmajorminor_create_file(struct visor_device *dev, const char *name,
 		rc = -ENOMEM;
 		goto away;
 	}
-	myattr = kmalloc(sizeof(*myattr), GFP_KERNEL|__GFP_NORETRY);
+	myattr = kmalloc(sizeof(*myattr), GFP_KERNEL | __GFP_NORETRY);
 	if (!myattr) {
 		rc = -ENOMEM;
 		goto away;
