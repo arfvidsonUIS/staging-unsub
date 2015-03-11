@@ -157,11 +157,11 @@ visorbus_match(struct device *xdev, struct device_driver *xdrv)
 	if (visorbus_forcenomatch)
 		goto away;
 
-	if (drv->channel_types == NULL)
+	if (!drv->channel_types)
 		goto away;
 	for (i = 0;
 	     (uuid_le_cmp(drv->channel_types[i].guid, NULL_UUID_LE) != 0) ||
-	     (drv->channel_types[i].name == NULL);
+	     (drv->channel_types[i].name);
 	     i++)
 		if (uuid_le_cmp(drv->channel_types[i].guid,
 				channel_type) == 0) {
@@ -194,11 +194,11 @@ visorbus_release_device(struct device *xdev)
 {
 	struct visor_device *dev = to_visor_device(xdev);
 
-	if (dev->periodic_work != NULL) {
+	if (dev->periodic_work) {
 		visor_periodic_work_destroy(dev->periodic_work);
 		dev->periodic_work = NULL;
 	}
-	if (dev->visorchannel != NULL) {
+	if (dev->visorchannel) {
 		visorchannel_destroy(dev->visorchannel);
 		dev->visorchannel = NULL;
 	}
@@ -816,13 +816,13 @@ create_visor_device(struct visorbus_devdata *devdata,
 	visorchannel = visorchannel_create(chan_info.channel_addr,
 					   (ulong)chan_info.n_channel_bytes,
 					   chan_info.channel_type_uuid);
-	if (visorchannel == NULL) {
+	if (!visorchannel) {
 		POSTCODE_LINUX_3(DEVICE_CREATE_FAILURE_PC, chipset_dev_no,
 				 DIAG_SEVERITY_ERR);
 		goto away;
 	}
 	dev = kmalloc(sizeof(*dev), GFP_KERNEL|__GFP_NORETRY);
-	if (dev == NULL) {
+	if (!dev) {
 		POSTCODE_LINUX_3(DEVICE_CREATE_FAILURE_PC, chipset_dev_no,
 				 DIAG_SEVERITY_ERR);
 		goto away;
@@ -847,7 +847,7 @@ create_visor_device(struct visorbus_devdata *devdata,
 					   periodic_dev_workqueue,
 					   dev_periodic_work,
 					   dev, dev_name(&dev->device));
-	if (dev->periodic_work == NULL) {
+	if (!dev->periodic_work) {
 		POSTCODE_LINUX_3(DEVICE_CREATE_FAILURE_PC, chipset_dev_no,
 				 DIAG_SEVERITY_ERR);
 		goto away;
@@ -911,7 +911,7 @@ away:
 			unregister_channel_attributes(dev);
 		if (gotten)
 			put_visordev(dev, "create", visorbus_debugref);
-		if (visorchannel != NULL) {
+		if (visorchannel) {
 			visorchannel_destroy(visorchannel);
 		}
 		kfree(dev);
@@ -959,7 +959,7 @@ init_vbus_channel(struct visorchannel *chan)
 
 	POSTCODE_LINUX_3(VBUS_CHANNEL_ENTRY_PC, rc, POSTCODE_SEVERITY_INFO);
 
-	if (x == NULL) {
+	if (x) {
 		POSTCODE_LINUX_2(MALLOC_FAILURE_PC, POSTCODE_SEVERITY_ERR);
 		goto away;
 	}
@@ -991,10 +991,8 @@ init_vbus_channel(struct visorchannel *chan)
 	rc = 0;
 
 away:
-	if (x != NULL) {
-		kfree(x);
-		x = NULL;
-	}
+	kfree(x);
+	x = NULL;
 	return rc;
 }
 
@@ -1096,7 +1094,7 @@ fix_vbus_dev_info(struct visor_device *visordev)
 	struct ultra_vbus_deviceinfo dev_info;
 	const char *chan_type_name = NULL;
 
-	if (visordev->device.driver == NULL)
+	if (!visordev->device.driver)
 			return;
 
 	visordrv = to_visor_driver(visordev->device.driver);
@@ -1115,7 +1113,7 @@ fix_vbus_dev_info(struct visor_device *visordev)
 	 * the type of this device, so that we can include the device
 	 * type name
 	 */
-	for (i = 0; visordrv->channel_types[i].name != NULL; i++) {
+	for (i = 0; visordrv->channel_types[i].name; i++) {
 		if (STRUCTSEQUAL(visordrv->channel_types[i].guid,
 				 visordev->channel_type_guid)) {
 			chan_type_name = visordrv->channel_types[i].name;
@@ -1150,7 +1148,7 @@ create_bus_instance(int id)
 
 	POSTCODE_LINUX_2(BUS_CREATE_ENTRY_PC, POSTCODE_SEVERITY_INFO);
 	dev = kmalloc(sizeof(*dev), GFP_KERNEL|__GFP_NORETRY);
-	if (dev == NULL) {
+	if (!dev) {
 		POSTCODE_LINUX_2(MALLOC_FAILURE_PC, POSTCODE_SEVERITY_ERR);
 		rc = NULL;
 		goto away;
@@ -1166,7 +1164,7 @@ create_bus_instance(int id)
 	}
 
 	devdata = kmalloc(sizeof(*devdata), GFP_KERNEL|__GFP_NORETRY);
-	if (devdata == NULL) {
+	if (!devdata) {
 		POSTCODE_LINUX_2(MALLOC_FAILURE_PC, POSTCODE_SEVERITY_ERR);
 		rc = NULL;
 		goto away;
@@ -1186,7 +1184,7 @@ create_bus_instance(int id)
 		devdata->chan = visorchannel_create(channel_addr,
 						    n_channel_bytes,
 						    channel_type_guid);
-		if (devdata->chan == NULL) {
+		if (!devdata->chan) {
 			POSTCODE_LINUX_3(DEVICE_CREATE_FAILURE_PC, channel_addr,
 					 POSTCODE_SEVERITY_ERR);
 		} else {
@@ -1551,11 +1549,11 @@ find_channel_size(struct device_driver *xdrv, void *xinfo)
 	int i = 0;
 	struct visor_driver *drv = to_visor_driver(xdrv);
 
-	if (drv->channel_types == NULL)
+	if (!drv->channel_types)
 		return 0;
 	for (i = 0;
 	     (uuid_le_cmp(drv->channel_types[i].guid, NULL_UUID_LE) != 0) ||
-	     (drv->channel_types[i].name == NULL); i++)
+	     (!drv->channel_types[i].name); i++)
 		if (uuid_le_cmp(drv->channel_types[i].guid, info->guid) == 0) {
 			info->min_size = drv->channel_types[i].min_size;
 			info->max_size = drv->channel_types[i].max_size;
@@ -1612,7 +1610,7 @@ periodic_test_work(struct work_struct *work)
 				for (i = 0; i < visorbus_devicetest; i++) {
 					dev = find_visor_device_by_channel
 					   (test_channel_infos[i].channel_addr);
-					if (dev != NULL)
+					if (dev)
 						remove_visor_device(dev);
 				}
 				create_phase = TRUE;
@@ -1657,7 +1655,7 @@ visorbus_init(void)
 		INIT_DELAYED_WORK(&periodic_work, periodic_test_work);
 		periodic_test_workqueue =
 		    create_singlethread_workqueue("visorbus_test");
-		if (periodic_test_workqueue == NULL) {
+		if (!periodic_test_workqueue) {
 			POSTCODE_LINUX_2(BUS_CREATE_ENTRY_PC,
 					 DIAG_SEVERITY_ERR);
 			rc = -ENOMEM;
@@ -1675,7 +1673,7 @@ visorbus_init(void)
 	}
 
 	periodic_dev_workqueue = create_singlethread_workqueue("visorbus_dev");
-	if (periodic_dev_workqueue == NULL) {
+	if (!periodic_dev_workqueue) {
 		POSTCODE_LINUX_2(CREATE_WORKQUEUE_PC, DIAG_SEVERITY_ERR);
 		rc = -ENOMEM;
 		goto away;
