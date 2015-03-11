@@ -819,7 +819,7 @@ create_visor_device(struct visorbus_devdata *devdata,
 				 DIAG_SEVERITY_ERR);
 		goto away;
 	}
-	dev = kmalloc(sizeof(*dev), GFP_KERNEL|__GFP_NORETRY);
+	dev = kmalloc(sizeof(*dev), GFP_KERNEL | __GFP_NORETRY);
 	if (!dev) {
 		POSTCODE_LINUX_3(DEVICE_CREATE_FAILURE_PC, chipset_dev_no,
 				 DIAG_SEVERITY_ERR);
@@ -952,7 +952,7 @@ init_vbus_channel(struct visorchannel *chan)
 	ulong allocated_bytes = visorchannel_get_nbytes(chan);
 	struct spar_vbus_channel_protocol *x =
 		kmalloc(sizeof(struct spar_vbus_channel_protocol),
-			GFP_KERNEL|__GFP_NORETRY);
+			GFP_KERNEL | __GFP_NORETRY);
 
 	POSTCODE_LINUX_3(VBUS_CHANNEL_ENTRY_PC, rc, POSTCODE_SEVERITY_INFO);
 
@@ -1142,7 +1142,7 @@ create_bus_instance(int id)
 	struct visorchipset_bus_info bus_info;
 
 	POSTCODE_LINUX_2(BUS_CREATE_ENTRY_PC, POSTCODE_SEVERITY_INFO);
-	dev = kmalloc(sizeof(*dev), GFP_KERNEL|__GFP_NORETRY);
+	dev = kmalloc(sizeof(*dev), GFP_KERNEL | __GFP_NORETRY);
 	if (!dev) {
 		POSTCODE_LINUX_2(MALLOC_FAILURE_PC, POSTCODE_SEVERITY_ERR);
 		rc = NULL;
@@ -1158,7 +1158,7 @@ create_bus_instance(int id)
 		goto away;
 	}
 
-	devdata = kmalloc(sizeof(*devdata), GFP_KERNEL|__GFP_NORETRY);
+	devdata = kmalloc(sizeof(*devdata), GFP_KERNEL | __GFP_NORETRY);
 	if (!devdata) {
 		POSTCODE_LINUX_2(MALLOC_FAILURE_PC, POSTCODE_SEVERITY_ERR);
 		rc = NULL;
@@ -1196,7 +1196,7 @@ create_bus_instance(int id)
 							    &chipset_driverinfo
 							    );
 					write_vbus_bus_info(devdata->chan,
-							&devdata->
+							    &devdata->
 								vbus_hdr_info,
 							&clientbus_driverinfo);
 				}
