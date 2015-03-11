@@ -461,7 +461,6 @@ register_businst_attributes(struct visorbus_devdata *businst)
 	if (rc < 0)
 			goto away;
 
-
 	kobject_uevent(&businst->kobj, KOBJ_ADD);
 
 	rc = 0;
@@ -600,9 +599,8 @@ visordriver_probe_device(struct device *xdev)
 	up(&dev->visordriver_callback_lock);
 	rc = 0;
 away:
-	if (rc != 0) {
+	if (rc != 0)
 		put_visordev(dev, "probe", visorbus_debugref);
-	}
 	/*  We could get here more than once if the child driver module is
 	 *  unloaded and re-loaded while devices are present.  That's why we
 	 *  need a flag to be sure that we only respond to the device_create
@@ -911,9 +909,8 @@ away:
 			unregister_channel_attributes(dev);
 		if (gotten)
 			put_visordev(dev, "create", visorbus_debugref);
-		if (visorchannel) {
+		if (visorchannel)
 			visorchannel_destroy(visorchannel);
-		}
 		kfree(dev);
 	} else {
 		total_devices_created++;
@@ -1002,16 +999,14 @@ get_vbus_header_info(struct visorchannel *chan,
 {
 	int rc = -1;
 
-	if (!SPAR_VBUS_CHANNEL_OK_CLIENT(visorchannel_get_header(chan))) {
+	if (!SPAR_VBUS_CHANNEL_OK_CLIENT(visorchannel_get_header(chan)))
 		goto away;
-	}
 	if (visorchannel_read(chan, sizeof(struct channel_header), hdr_info,
 			      sizeof(*hdr_info)) < 0) {
 		goto away;
 	}
-	if (hdr_info->struct_bytes < sizeof(struct spar_vbus_headerinfo)) {
+	if (hdr_info->struct_bytes < sizeof(struct spar_vbus_headerinfo))
 		goto away;
-	}
 	if (hdr_info->device_info_struct_bytes <
 	    sizeof(struct ultra_vbus_deviceinfo)) {
 		goto away;
@@ -1333,9 +1328,8 @@ chipset_bus_destroy(ulong bus_no)
 		goto away;
 	rc = 0;
 away:
-	if (rc < 0) {
+	if (rc < 0)
 		return;
-	}
 	if (chipset_responders.bus_destroy)
 		(*chipset_responders.bus_destroy)(bus_no, rc);
 }
