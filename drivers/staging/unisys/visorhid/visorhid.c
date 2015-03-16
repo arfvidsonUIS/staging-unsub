@@ -261,8 +261,8 @@ devdata_create(struct visor_device *dev)
 
 	guid = visorchannel_get_uuid(dev->visorchannel);
 	devdata = kmalloc(sizeof(*devdata),
-			  GFP_KERNEL|__GFP_NORETRY);
-	if (devdata == NULL)
+			  GFP_KERNEL | __GFP_NORETRY);
+	if (!devdata)
 			goto cleanups;
 
 	memset(devdata, '\0', sizeof(struct visorconinclient_devdata));
@@ -274,8 +274,6 @@ devdata_create(struct visor_device *dev)
 		devno = -1;
 	if (devno < 0)
 			goto cleanups;
-
-
 	devdata->devno = devno;
 	devdata->dev = dev;
 	strncpy(devdata->name, dev_name(&dev->device), sizeof(devdata->name));
@@ -284,18 +282,18 @@ devdata_create(struct visor_device *dev)
 	 * so we need to create whatever gizmos are necessary to
 	 * deliver our inputs to the guest OS. */
 	if (memcmp(&guid, &spar_keyboard_channel_protocol_uuid,
-	    sizeof(guid)) == 0) {
+		   sizeof(guid)) == 0) {
 		devdata->visorinput_dev = register_client_keyboard();
-		if (devdata->visorinput_dev == NULL)
+		if (!devdata->visorinput_dev)
 				goto cleanups;
 		devdata->supported_client_device = TRUE;
 	} else if (memcmp(&guid, &spar_mouse_channel_protocol_uuid,
-		   sizeof(guid)) == 0) {
+			  sizeof(guid)) == 0) {
 		devdata->visorinput_dev = register_client_mouse();
-		if (devdata->visorinput_dev == NULL)
+		if (!devdata->visorinput_dev)
 				goto cleanups;
 		devdata->visorinput_dev2 = register_client_wheel();
-		if (devdata->visorinput_dev2 == NULL)
+		if (!devdata->visorinput_dev2)
 				goto cleanups;
 		devdata->supported_client_device = TRUE;
 	}
@@ -309,19 +307,19 @@ devdata_create(struct visor_device *dev)
 
 	rc = devdata;
 cleanups:
-	if (rc == NULL) {
+	if (!rc) {
 		if (devno >= 0) {
 			spin_lock(&devnopool_lock);
 			clear_bit(devno, dev_no_pool);
 			spin_unlock(&devnopool_lock);
 		}
-		if (devdata != NULL) {
-			if (devdata->visorinput_dev != NULL) {
+		if (devdata) {
+			if (devdata->visorinput_dev) {
 				unregister_client_input
 				    (devdata->visorinput_dev);
 				devdata->visorinput_dev = NULL;
 			}
-			if (devdata->visorinput_dev2 != NULL) {
+			if (devdata->visorinput_dev2) {
 				unregister_client_input
 				    (devdata->visorinput_dev2);
 				devdata->visorinput_dev2 = NULL;
@@ -353,15 +351,16 @@ visorconinclient_probe(struct visor_device *dev)
 	uuid_le guid;
 
 	devdata = devdata_create(dev);
-	if (devdata == NULL) {
+	if (!devdata) {
 		rc = -1;
 		goto cleanups;
 	}
 	visor_set_drvdata(dev, devdata);
 	guid = visorchannel_get_uuid(dev->visorchannel);
-	if (memcmp(&guid, &spar_mouse_channel_protocol_uuid, sizeof(guid)) != 0
-	    && memcmp(&guid, &spar_keyboard_channel_protocol_uuid,
-	    	      sizeof(guid)) != 0) {
+	if (memcmp(&guid, &spar_mouse_channel_protocol_uuid,
+		   sizeof(guid)) != 0 &&
+		   memcmp(&guid, &spar_keyboard_channel_protocol_uuid,
+			  sizeof(guid)) != 0) {
 		rc = -1;
 		goto cleanups;
 	}
@@ -371,7 +370,7 @@ visorconinclient_probe(struct visor_device *dev)
 
 cleanups:
 	if (rc < 0) {
-		if (devdata != NULL)
+		if (devdata)
 			devdata_put(devdata, "existence");
 	}
 	return rc;
@@ -391,7 +390,7 @@ visorconinclient_remove(struct visor_device *dev)
 {
 	struct visorconinclient_devdata *devdata = visor_get_drvdata(dev);
 
-	if (devdata == NULL)
+	if (!devdata)
 			return;
 
 	visor_set_drvdata(dev, NULL);
@@ -407,16 +406,14 @@ static void
 visorconinclient_cleanup_guts(void)
 {
 	visorbus_unregister_visor_driver(&visorconinclient_driver);
-	if (dev_no_pool != NULL) {
 		kfree(dev_no_pool);
 		dev_no_pool = NULL;
-	}
 }
 
 static void
 unregister_client_input(struct input_dev *visorinput_dev)
 {
-	if (visorinput_dev != NULL)
+	if (visorinput_dev)
 			input_unregister_device(visorinput_dev);
 }
 
@@ -698,7 +695,7 @@ visorconinclient_channel_interrupt(struct visor_device *dev)
 
 	struct visorconinclient_devdata *devdata = visor_get_drvdata(dev);
 
-	if (devdata == NULL)
+	if (!devdata)
 			goto cleanups;
 
 	down_write(&devdata->lock_visor_dev);
@@ -707,7 +704,7 @@ visorconinclient_channel_interrupt(struct visor_device *dev)
 			goto cleanups;
 
 	visorinput_dev = devdata->visorinput_dev;
-	if (visorinput_dev == NULL)
+	if (!visorinput_dev)
 			goto cleanups;
 
 	visorinput_dev2 = devdata->visorinput_dev2;
@@ -775,14 +772,14 @@ visorconinclient_channel_interrupt(struct visor_device *dev)
 			}
 			break;
 		case inputAction_wheelRotateAway:
-			if (visorinput_dev2 == NULL)
+			if (!visorinput_dev2)
 					goto cleanups;
 			zmotion = r.activity.arg1;
 			input_report_rel(visorinput_dev2, REL_WHEEL, 1);
 			input_sync(visorinput_dev2);
 			break;
 		case inputAction_wheelRotateToward:
-			if (visorinput_dev2 == NULL)
+			if (!visorinput_dev2)
 					goto cleanups;
 			zmotion = r.activity.arg1;
 			input_report_rel(visorinput_dev2, REL_WHEEL, -1);
@@ -806,7 +803,7 @@ visorconinclient_pause(struct visor_device *dev,
 	int rc = -1;
 	struct visorconinclient_devdata *devdata = visor_get_drvdata(dev);
 
-	if (devdata == NULL)
+	if (!devdata)
 			goto cleanups;
 
 	down_write(&devdata->lock_visor_dev);
@@ -833,7 +830,7 @@ visorconinclient_resume(struct visor_device *dev,
 	int rc = -1;
 	struct visorconinclient_devdata *devdata = visor_get_drvdata(dev);
 
-	if (devdata == NULL)
+	if (!devdata)
 			goto cleanups;
 	down_write(&devdata->lock_visor_dev);
 	locked = TRUE;
@@ -857,7 +854,7 @@ visorconinclient_init(void)
 
 	spin_lock_init(&devnopool_lock);
 	dev_no_pool = kzalloc(BITS_TO_LONGS(MAXDEVICES), GFP_KERNEL);
-	if (dev_no_pool == NULL) {
+	if (!dev_no_pool) {
 		rc = -1;
 		goto cleanups;
 	}
