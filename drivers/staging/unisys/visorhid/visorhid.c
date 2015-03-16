@@ -28,8 +28,6 @@
 #include "visorchannel.h"
 #include "keyboardchannel.h"
 #include "mousechannel.h"
-#define KBDUUID spar_keyboard_channel_protocol_uuid
-#define MOUGUID spar_mouse_channel_protocol_uuid
 #include <linux/input.h>
 #include <linux/serio.h>
 #include <linux/fs.h>
@@ -285,12 +283,14 @@ devdata_create(struct visor_device *dev)
 	/* This is an input device in a client guest partition,
 	 * so we need to create whatever gizmos are necessary to
 	 * deliver our inputs to the guest OS. */
-	if (memcmp(&guid, &KBDUUID, sizeof(guid)) == 0) {
+	if (memcmp(&guid, &spar_keyboard_channel_protocol_uuid,
+	    sizeof(guid)) == 0) {
 		devdata->visorinput_dev = register_client_keyboard();
 		if (devdata->visorinput_dev == NULL)
 				goto cleanups;
 		devdata->supported_client_device = TRUE;
-	} else if (memcmp(&guid, &MOUGUID, sizeof(guid)) == 0) {
+	} else if (memcmp(&guid, &spar_mouse_channel_protocol_uuid,
+		   sizeof(guid)) == 0) {
 		devdata->visorinput_dev = register_client_mouse();
 		if (devdata->visorinput_dev == NULL)
 				goto cleanups;
@@ -359,8 +359,9 @@ visorconinclient_probe(struct visor_device *dev)
 	}
 	visor_set_drvdata(dev, devdata);
 	guid = visorchannel_get_uuid(dev->visorchannel);
-	if (memcmp(&guid, &MOUGUID, sizeof(guid)) != 0 &&
-	    memcmp(&guid, &KBDUUID, sizeof(guid)) != 0) {
+	if (memcmp(&guid, &spar_mouse_channel_protocol_uuid, sizeof(guid)) != 0
+	    && memcmp(&guid, &spar_keyboard_channel_protocol_uuid,
+	    	      sizeof(guid)) != 0) {
 		rc = -1;
 		goto cleanups;
 	}
