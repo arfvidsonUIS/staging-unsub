@@ -1,10 +1,10 @@
 #
-# Makefile for Unisys visorconinclient
+# Makefile for Unisys visorhid
 #
 
-obj-$(CONFIG_UNISYS_VISORCONINCLIENT)	+= visorconinclient.o
+obj-$(CONFIG_UNISYS_VISORCONINCLIENT)	+= visorhid.o
 
-visorconinclient-y := visorconinclient_main.o
+visorhid-y := visorhid.o
 
 ccflags-y += -Idrivers/staging/unisys/include
 ccflags-y += -Idrivers/staging/unisys/visorutil

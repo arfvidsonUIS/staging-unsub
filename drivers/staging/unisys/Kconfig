@@ -23,7 +23,7 @@ source "drivers/staging/unisys/visornic/Kconfig"
 source "drivers/staging/unisys/visordiag/Kconfig"
 source "drivers/staging/unisys/visorserial/Kconfig"
 source "drivers/staging/unisys/visorvideoclient/Kconfig"
-source "drivers/staging/unisys/visorconinclient/Kconfig"
+source "drivers/staging/unisys/visorhid/Kconfig"
 source "drivers/staging/unisys/sparstopdriver/Kconfig"
 
 endif # UNISYSSPAR

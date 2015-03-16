@@ -1,4 +1,4 @@
-/* visorconinclient_main.c
+/* visorhid.c
  *
  * Copyright (c) 2011 - 2014 UNISYS CORPORATION
  * All rights reserved.

@@ -15,5 +15,5 @@ obj-$(CONFIG_UNISYS_VISORNOOP)		+= visornoop/
 obj-$(CONFIG_UNISYS_VISORNIC)		+= visornic/
 obj-$(CONFIG_UNISYS_VISORSERIAL)	+= visorserial/
 obj-$(CONFIG_UNISYS_VISORVIDEOCLIENT)	+= visorvideoclient/
-obj-$(CONFIG_UNISYS_VISORCONINCLIENT)	+= visorconinclient/
+obj-$(CONFIG_UNISYS_VISORHID)		+= visorhid/
 obj-$(CONFIG_UNISYS_SPARSTOP)		+= sparstopdriver/

@@ -17,7 +17,7 @@
 
 #include "version.h"
 
-#define MYDRVNAME "visorconinclient"
+#define MYDRVNAME "visorhid"
 #define MAXDEVICES     16384
 
 extern int visorconinclient_debug;
