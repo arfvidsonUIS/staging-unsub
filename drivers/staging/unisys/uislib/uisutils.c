@@ -109,20 +109,13 @@ uisctrl_register_req_handler_ex(uuid_le switch_uuid,
 {
 	struct req_handler_info *req_handler;
 
-	LOGINF("type=%pUL, controlfunc=0x%p.\n",
-	       &switch_uuid, controlfunc);
 	if (!controlfunc) {
-		LOGERR("%pUL: controlfunc must be supplied\n", &switch_uuid);
 		return 0;
 	}
 	if (!server_channel_ok) {
-		LOGERR("%pUL: Server_Channel_Ok must be supplied\n",
-				&switch_uuid);
 		return 0;
 	}
 	if (!server_channel_init) {
-		LOGERR("%pUL: Server_Channel_Init must be supplied\n",
-				&switch_uuid);
 		return 0;
 	}
 	req_handler = req_handler_add(switch_uuid,
@@ -131,7 +124,6 @@ uisctrl_register_req_handler_ex(uuid_le switch_uuid,
 				      min_channel_bytes,
 				      server_channel_ok, server_channel_init);
 	if (!req_handler) {
-		LOGERR("failed to add %pUL to server list\n", &switch_uuid);
 		return 0;
 	}
 
@@ -141,8 +133,6 @@ uisctrl_register_req_handler_ex(uuid_le switch_uuid,
 				     "uislib", VERSION, NULL);
 		return 1;
 	}
-
-	LOGERR("failed to register type %pUL.\n", &switch_uuid);
 	return 0;
 }
 EXPORT_SYMBOL_GPL(uisctrl_register_req_handler_ex);
@@ -150,10 +140,7 @@ EXPORT_SYMBOL_GPL(uisctrl_register_req_handler_ex);
 int
 uisctrl_unregister_req_handler_ex(uuid_le switch_uuid)
 {
-	LOGINF("type=%pUL.\n", &switch_uuid);
 	if (req_handler_del(switch_uuid) < 0) {
-		LOGERR("failed to remove %pUL from server list\n",
-		       &switch_uuid);
 		return 0;
 	}
 	atomic_dec(&uisutils_registered_services);
@@ -192,8 +179,6 @@ uisutil_copy_fragsinfo_from_skb(unsigned char *calling_ctx, void *skb_in,
 
 	while (firstfraglen) {
 		if (count == frags_max) {
-			LOGERR("%s frags array too small: max:%d count:%d\n",
-			       calling_ctx, frags_max, count);
 			return -1;	/* failure */
 		}
 		frags[count].pi_pfn =
@@ -215,8 +200,6 @@ uisutil_copy_fragsinfo_from_skb(unsigned char *calling_ctx, void *skb_in,
 		goto dolist;
 
 	if ((count + numfrags) > frags_max) {
-		LOGERR("**** FAILED %s frags array too small: max:%d count+nr_frags:%d\n",
-		       calling_ctx, frags_max, count + numfrags);
 		return -1;	/* failure */
 	}
 
@@ -229,7 +212,6 @@ uisutil_copy_fragsinfo_from_skb(unsigned char *calling_ctx, void *skb_in,
 					size, count, frags_max,
 					frags);
 		if (count == 0) {
-			LOGERR("**** FAILED to add physinfo entries\n");
 			return -1;	/* failure */
 		}
 	}
@@ -246,7 +228,6 @@ dolist: if (skb_shinfo(skb)->frag_list) {
 				frags_max - count,
 				&frags[count]);
 			if (c == -1) {
-				LOGERR("**** FAILED recursive call failed\n");
 				return -1;
 			}
 			count += c;
