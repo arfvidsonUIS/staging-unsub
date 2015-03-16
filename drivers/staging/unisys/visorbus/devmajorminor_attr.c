@@ -90,14 +90,14 @@ devmajorminor_create_file(struct visor_device *dev, const char *name,
 		goto away;
 	register_devmajorminor_attributes(dev);
 	for (slot = 0; slot < maxdevnodes; slot++)
-		if (dev->devnodes[slot].attr == NULL)
+		if (!dev->devnodes[slot].attr)
 			break;
 	if (slot == maxdevnodes) {
 		rc = -ENOMEM;
 		goto away;
 	}
-	myattr = kmalloc(sizeof(*myattr), GFP_KERNEL|__GFP_NORETRY);
-	if (myattr == NULL) {
+	myattr = kmalloc(sizeof(*myattr), GFP_KERNEL | __GFP_NORETRY);
+	if (!myattr) {
 		rc = -ENOMEM;
 		goto away;
 	}
@@ -118,11 +118,9 @@ devmajorminor_create_file(struct visor_device *dev, const char *name,
 	kobject_uevent(&dev->device.kobj, KOBJ_ONLINE);
 away:
 	if (rc < 0) {
-		if (myattr != NULL) {
-			kfree(myattr);
-			myattr = NULL;
-			dev->devnodes[slot].attr = NULL;
-		}
+		kfree(myattr);
+		myattr = NULL;
+		dev->devnodes[slot].attr = NULL;
 	}
 	return rc;
 }
@@ -138,7 +136,7 @@ devmajorminor_remove_file(struct visor_device *dev, int slot)
 	if (slot < 0 || slot >= maxdevnodes)
 		return;
 	myattr = (struct devmajorminor_attribute *)(dev->devnodes[slot].attr);
-	if (myattr == NULL)
+	if (myattr)
 		return;
 	sysfs_remove_file(&dev->kobjdevmajorminor, &myattr->attr);
 	kobject_uevent(&dev->device.kobj, KOBJ_OFFLINE);
@@ -174,7 +172,7 @@ register_devmajorminor_attributes(struct visor_device *dev)
 
 	if (DEVMAJORMINOR_DONTDOANYTHING)
 		goto away;
-	if (dev->kobjdevmajorminor.parent != NULL)
+	if (dev->kobjdevmajorminor.parent)
 		goto away;	/* already registered */
 	x = kobject_init_and_add(&dev->kobjdevmajorminor,
 				 &devmajorminor_kobj_type, &dev->device.kobj,
@@ -195,7 +193,7 @@ unregister_devmajorminor_attributes(struct visor_device *dev)
 {
 	if (DEVMAJORMINOR_DONTDOANYTHING)
 		return;
-	if (dev->kobjdevmajorminor.parent == NULL)
+	if (!dev->kobjdevmajorminor.parent)
 		return;		/* already unregistered */
 	devmajorminor_remove_all_files(dev);
 

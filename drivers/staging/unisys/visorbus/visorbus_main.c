@@ -461,7 +461,6 @@ register_businst_attributes(struct visorbus_devdata *businst)
 	if (rc < 0)
 			goto away;
 
-
 	kobject_uevent(&businst->kobj, KOBJ_ADD);
 
 	rc = 0;
@@ -600,9 +599,8 @@ visordriver_probe_device(struct device *xdev)
 	up(&dev->visordriver_callback_lock);
 	rc = 0;
 away:
-	if (rc != 0) {
+	if (rc != 0)
 		put_visordev(dev, "probe", visorbus_debugref);
-	}
 	/*  We could get here more than once if the child driver module is
 	 *  unloaded and re-loaded while devices are present.  That's why we
 	 *  need a flag to be sure that we only respond to the device_create
@@ -821,7 +819,7 @@ create_visor_device(struct visorbus_devdata *devdata,
 				 DIAG_SEVERITY_ERR);
 		goto away;
 	}
-	dev = kmalloc(sizeof(*dev), GFP_KERNEL|__GFP_NORETRY);
+	dev = kmalloc(sizeof(*dev), GFP_KERNEL | __GFP_NORETRY);
 	if (!dev) {
 		POSTCODE_LINUX_3(DEVICE_CREATE_FAILURE_PC, chipset_dev_no,
 				 DIAG_SEVERITY_ERR);
@@ -911,9 +909,8 @@ away:
 			unregister_channel_attributes(dev);
 		if (gotten)
 			put_visordev(dev, "create", visorbus_debugref);
-		if (visorchannel) {
+		if (visorchannel)
 			visorchannel_destroy(visorchannel);
-		}
 		kfree(dev);
 	} else {
 		total_devices_created++;
@@ -955,7 +952,7 @@ init_vbus_channel(struct visorchannel *chan)
 	ulong allocated_bytes = visorchannel_get_nbytes(chan);
 	struct spar_vbus_channel_protocol *x =
 		kmalloc(sizeof(struct spar_vbus_channel_protocol),
-			GFP_KERNEL|__GFP_NORETRY);
+			GFP_KERNEL | __GFP_NORETRY);
 
 	POSTCODE_LINUX_3(VBUS_CHANNEL_ENTRY_PC, rc, POSTCODE_SEVERITY_INFO);
 
@@ -1002,16 +999,14 @@ get_vbus_header_info(struct visorchannel *chan,
 {
 	int rc = -1;
 
-	if (!SPAR_VBUS_CHANNEL_OK_CLIENT(visorchannel_get_header(chan))) {
+	if (!SPAR_VBUS_CHANNEL_OK_CLIENT(visorchannel_get_header(chan)))
 		goto away;
-	}
 	if (visorchannel_read(chan, sizeof(struct channel_header), hdr_info,
 			      sizeof(*hdr_info)) < 0) {
 		goto away;
 	}
-	if (hdr_info->struct_bytes < sizeof(struct spar_vbus_headerinfo)) {
+	if (hdr_info->struct_bytes < sizeof(struct spar_vbus_headerinfo))
 		goto away;
-	}
 	if (hdr_info->device_info_struct_bytes <
 	    sizeof(struct ultra_vbus_deviceinfo)) {
 		goto away;
@@ -1147,7 +1142,7 @@ create_bus_instance(int id)
 	struct visorchipset_bus_info bus_info;
 
 	POSTCODE_LINUX_2(BUS_CREATE_ENTRY_PC, POSTCODE_SEVERITY_INFO);
-	dev = kmalloc(sizeof(*dev), GFP_KERNEL|__GFP_NORETRY);
+	dev = kmalloc(sizeof(*dev), GFP_KERNEL | __GFP_NORETRY);
 	if (!dev) {
 		POSTCODE_LINUX_2(MALLOC_FAILURE_PC, POSTCODE_SEVERITY_ERR);
 		rc = NULL;
@@ -1162,8 +1157,7 @@ create_bus_instance(int id)
 		rc = NULL;
 		goto away;
 	}
-
-	devdata = kmalloc(sizeof(*devdata), GFP_KERNEL|__GFP_NORETRY);
+	devdata = kmalloc(sizeof(*devdata), GFP_KERNEL | __GFP_NORETRY);
 	if (!devdata) {
 		POSTCODE_LINUX_2(MALLOC_FAILURE_PC, POSTCODE_SEVERITY_ERR);
 		rc = NULL;
@@ -1201,7 +1195,7 @@ create_bus_instance(int id)
 							    &chipset_driverinfo
 							    );
 					write_vbus_bus_info(devdata->chan,
-							&devdata->
+							    &devdata->
 								vbus_hdr_info,
 							&clientbus_driverinfo);
 				}
@@ -1333,9 +1327,8 @@ chipset_bus_destroy(ulong bus_no)
 		goto away;
 	rc = 0;
 away:
-	if (rc < 0) {
+	if (rc < 0)
 		return;
-	}
 	if (chipset_responders.bus_destroy)
 		(*chipset_responders.bus_destroy)(bus_no, rc);
 }
