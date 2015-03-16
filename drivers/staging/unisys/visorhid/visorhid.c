@@ -43,13 +43,13 @@
 static spinlock_t devnopool_lock;
 static void *dev_no_pool; /**< pool to grab device numbers from */
 
-static int visorconinclient_probe(struct visor_device *dev);
-static void visorconinclient_remove(struct visor_device *dev);
-static void visorconinclient_channel_interrupt(struct visor_device *dev);
-static int visorconinclient_pause(struct visor_device *dev,
-				  VISORBUS_STATE_COMPLETE_FUNC complete_func);
-static int visorconinclient_resume(struct visor_device *dev,
-				   VISORBUS_STATE_COMPLETE_FUNC complete_func);
+static int visorhid_probe(struct visor_device *dev);
+static void visorhid_remove(struct visor_device *dev);
+static void visorhid_channel_interrupt(struct visor_device *dev);
+static int visorhid_pause(struct visor_device *dev,
+			  VISORBUS_STATE_COMPLETE_FUNC complete_func);
+static int visorhid_resume(struct visor_device *dev,
+			   VISORBUS_STATE_COMPLETE_FUNC complete_func);
 static struct input_dev *register_client_keyboard(void);
 static struct input_dev *register_client_mouse(void);
 static struct input_dev *register_client_wheel(void);
@@ -57,7 +57,7 @@ static void unregister_client_input(struct input_dev *visorinput_dev);
 
 /**  GUIDS for all channel types supported by this driver.
  */
-static struct visor_channeltype_descriptor visorconinclient_channel_types[] = {
+static struct visor_channeltype_descriptor visorhid_channel_types[] = {
 	{SPAR_KEYBOARD_CHANNEL_PROTOCOL_UUID, "keyboard",
 	 KEYBOARD_CH_SIZE, KEYBOARD_CH_SIZE},
 	{SPAR_MOUSE_CHANNEL_PROTOCOL_UUID, "mouse",
@@ -69,24 +69,24 @@ static struct visor_channeltype_descriptor visorconinclient_channel_types[] = {
  *  we support, and what functions to call when a visor device that we support
  *  is attached or removed.
  */
-static struct visor_driver visorconinclient_driver = {
+static struct visor_driver visorhid_driver = {
 	.name = MYDRVNAME,
 	.version = VERSION,
 	.vertag = NULL,
 	.owner = THIS_MODULE,
-	.channel_types = visorconinclient_channel_types,
-	.probe = visorconinclient_probe,
-	.remove = visorconinclient_remove,
-	.channel_interrupt = visorconinclient_channel_interrupt,
-	.pause = visorconinclient_pause,
-	.resume = visorconinclient_resume,
+	.channel_types = visorhid_channel_types,
+	.probe = visorhid_probe,
+	.remove = visorhid_remove,
+	.channel_interrupt = visorhid_channel_interrupt,
+	.pause = visorhid_pause,
+	.resume = visorhid_resume,
 };
 
 /** This is the private data that we store for each device.
  *  A pointer to this struct is kept in each "struct device", and can be
  *  obtained using visor_get_drvdata(dev).
  */
-struct visorconinclient_devdata {
+struct visorhid_devdata {
 	int devno;
 	struct visor_device *dev;
 	/** lock for dev */
@@ -100,7 +100,7 @@ struct visorconinclient_devdata {
 	BOOL paused;
 };
 
-/** List of all visorconinclient_devdata structs,
+/** List of all visorhid_devdata structs,
   * linked via the list_all member */
 static LIST_HEAD(list_all_devices);
 static DEFINE_SPINLOCK(lock_all_devices);
@@ -251,11 +251,11 @@ static unsigned char ext_keycode[256] = {
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	/* 0x70 */
 };
 
-static struct visorconinclient_devdata *
+static struct visorhid_devdata *
 devdata_create(struct visor_device *dev)
 {
 	void *rc = NULL;
-	struct visorconinclient_devdata *devdata = NULL;
+	struct visorhid_devdata *devdata = NULL;
 	int devno = -1;
 	uuid_le guid;
 
@@ -265,7 +265,7 @@ devdata_create(struct visor_device *dev)
 	if (!devdata)
 			goto cleanups;
 
-	memset(devdata, '\0', sizeof(struct visorconinclient_devdata));
+	memset(devdata, '\0', sizeof(struct visorhid_devdata));
 	spin_lock(&devnopool_lock);
 	devno = find_first_zero_bit(dev_no_pool, MAXDEVICES);
 	set_bit(devno, dev_no_pool);
@@ -333,8 +333,8 @@ cleanups:
 static void
 devdata_release(struct kref *mykref)
 {
-	struct visorconinclient_devdata *devdata =
-	    container_of(mykref, struct visorconinclient_devdata, kref);
+	struct visorhid_devdata *devdata =
+	    container_of(mykref, struct visorhid_devdata, kref);
 	spin_lock(&devnopool_lock);
 	clear_bit(devdata->devno, dev_no_pool);
 	spin_unlock(&devnopool_lock);
@@ -344,10 +344,10 @@ devdata_release(struct kref *mykref)
 }
 
 static int
-visorconinclient_probe(struct visor_device *dev)
+visorhid_probe(struct visor_device *dev)
 {
 	int rc = 0;
-	struct visorconinclient_devdata *devdata = NULL;
+	struct visorhid_devdata *devdata = NULL;
 	uuid_le guid;
 
 	devdata = devdata_create(dev);
@@ -377,7 +377,7 @@ cleanups:
 }
 
 static void
-host_side_disappeared(struct visorconinclient_devdata *devdata)
+host_side_disappeared(struct visorhid_devdata *devdata)
 {
 	down_write(&devdata->lock_visor_dev);
 	sprintf(devdata->name, "<dev#%d-history>", devdata->devno);
@@ -386,9 +386,9 @@ host_side_disappeared(struct visorconinclient_devdata *devdata)
 }
 
 static void
-visorconinclient_remove(struct visor_device *dev)
+visorhid_remove(struct visor_device *dev)
 {
-	struct visorconinclient_devdata *devdata = visor_get_drvdata(dev);
+	struct visorhid_devdata *devdata = visor_get_drvdata(dev);
 
 	if (!devdata)
 			return;
@@ -403,9 +403,9 @@ visorconinclient_remove(struct visor_device *dev)
 }
 
 static void
-visorconinclient_cleanup_guts(void)
+visorhid_cleanup_guts(void)
 {
-	visorbus_unregister_visor_driver(&visorconinclient_driver);
+	visorbus_unregister_visor_driver(&visorhid_driver);
 		kfree(dev_no_pool);
 		dev_no_pool = NULL;
 }
@@ -683,7 +683,7 @@ calc_button(int x)
  * from the channel, and deliver them to the guest OS.
  */
 static void
-visorconinclient_channel_interrupt(struct visor_device *dev)
+visorhid_channel_interrupt(struct visor_device *dev)
 {
 	ULTRA_INPUTREPORT r;
 	int scancode, keycode;
@@ -693,7 +693,7 @@ visorconinclient_channel_interrupt(struct visor_device *dev)
 	int i;
 	BOOL locked = FALSE;
 
-	struct visorconinclient_devdata *devdata = visor_get_drvdata(dev);
+	struct visorhid_devdata *devdata = visor_get_drvdata(dev);
 
 	if (!devdata)
 			goto cleanups;
@@ -796,12 +796,12 @@ cleanups:
 }
 
 static int
-visorconinclient_pause(struct visor_device *dev,
-		       VISORBUS_STATE_COMPLETE_FUNC complete_func)
+visorhid_pause(struct visor_device *dev,
+	       VISORBUS_STATE_COMPLETE_FUNC complete_func)
 {
 	BOOL locked = FALSE;
 	int rc = -1;
-	struct visorconinclient_devdata *devdata = visor_get_drvdata(dev);
+	struct visorhid_devdata *devdata = visor_get_drvdata(dev);
 
 	if (!devdata)
 			goto cleanups;
@@ -823,12 +823,12 @@ cleanups:
 }
 
 static int
-visorconinclient_resume(struct visor_device *dev,
-			VISORBUS_STATE_COMPLETE_FUNC complete_func)
+visorhid_resume(struct visor_device *dev,
+		VISORBUS_STATE_COMPLETE_FUNC complete_func)
 {
 	BOOL locked = FALSE;
 	int rc = -1;
-	struct visorconinclient_devdata *devdata = visor_get_drvdata(dev);
+	struct visorhid_devdata *devdata = visor_get_drvdata(dev);
 
 	if (!devdata)
 			goto cleanups;
@@ -848,7 +848,7 @@ cleanups:
 }
 
 static int
-visorconinclient_init(void)
+visorhid_init(void)
 {
 	int rc = 0;
 
@@ -858,30 +858,30 @@ visorconinclient_init(void)
 		rc = -1;
 		goto cleanups;
 	}
-	visorbus_register_visor_driver(&visorconinclient_driver);
+	visorbus_register_visor_driver(&visorhid_driver);
 
 cleanups:
 	if (rc < 0)
-		visorconinclient_cleanup_guts();
+		visorhid_cleanup_guts();
 	return rc;
 }
 
 static void
-visorconinclient_cleanup(void)
+visorhid_cleanup(void)
 {
-	visorconinclient_cleanup_guts();
+	visorhid_cleanup_guts();
 }
 
-module_param_named(debug, visorconinclient_debug, int, S_IRUGO);
-MODULE_PARM_DESC(visorconinclient_debug, "1 to debug");
-int visorconinclient_debug = 0;
+module_param_named(debug, visorhid_debug, int, S_IRUGO);
+MODULE_PARM_DESC(visorhid_debug, "1 to debug");
+int visorhid_debug = 0;
 
-module_param_named(debugref, visorconinclient_debugref, int, S_IRUGO);
-MODULE_PARM_DESC(visorconinclient_debugref, "1 to debug reference counts");
-int visorconinclient_debugref = 0;
+module_param_named(debugref, visorhid_debugref, int, S_IRUGO);
+MODULE_PARM_DESC(visorhid_debugref, "1 to debug reference counts");
+int visorhid_debugref = 0;
 
-module_init(visorconinclient_init);
-module_exit(visorconinclient_cleanup);
+module_init(visorhid_init);
+module_exit(visorhid_cleanup);
 
 MODULE_AUTHOR("Unisys");
 MODULE_LICENSE("GPL");
