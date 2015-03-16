@@ -20,5 +20,5 @@
 #define MYDRVNAME "visorhid"
 #define MAXDEVICES     16384
 
-extern int visorconinclient_debug;
-extern int visorconinclient_debugref;
+extern int visorhid_debug;
+extern int visorhid_debugref;
