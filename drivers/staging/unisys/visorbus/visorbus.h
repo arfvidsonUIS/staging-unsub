@@ -41,7 +41,7 @@
 struct visor_driver;
 struct visor_device;
 
-typedef void (*VISORBUS_STATE_COMPLETE_FUNC) (struct visor_device *dev,
+typedef void (*visorbus_state_complete_func) (struct visor_device *dev,
 					      int status);
 
 /** This struct describes a specific Supervisor channel, by providing its
@@ -97,9 +97,9 @@ struct visor_driver {
 	 *  fails or completes successfully.
 	 */
 	int (*pause)(struct visor_device *dev,
-		     VISORBUS_STATE_COMPLETE_FUNC complete_func);
+		     visorbus_state_complete_func complete_func);
 	int (*resume)(struct visor_device *dev,
-		      VISORBUS_STATE_COMPLETE_FUNC complete_func);
+		      visorbus_state_complete_func complete_func);
 
 	/** These fields are for private use by the bus driver only. */
 	struct device_driver driver;

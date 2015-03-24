@@ -35,9 +35,9 @@ static void *dev_no_pool;	/**< pool to grab device numbers from */
 static int visornoop_probe(struct visor_device *dev);
 static void visornoop_remove(struct visor_device *dev);
 static int visornoop_pause(struct visor_device *dev,
-			   VISORBUS_STATE_COMPLETE_FUNC complete_func);
+			   visorbus_state_complete_func complete_func);
 static int visornoop_resume(struct visor_device *dev,
-			    VISORBUS_STATE_COMPLETE_FUNC complete_func);
+			    visorbus_state_complete_func complete_func);
 
 /**  GUIDS for director channel type supported by this driver.
 */
@@ -184,14 +184,14 @@ static void visornoop_remove(struct visor_device *dev)
 }
 
 static int visornoop_pause(struct visor_device *dev,
-			   VISORBUS_STATE_COMPLETE_FUNC complete_func)
+			   visorbus_state_complete_func complete_func)
 {
 	complete_func(dev, 0);
 	return 0;
 }
 
 static int visornoop_resume(struct visor_device *dev,
-			    VISORBUS_STATE_COMPLETE_FUNC complete_func)
+			    visorbus_state_complete_func complete_func)
 {
 	complete_func(dev, 0);
 	return 0;

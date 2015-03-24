@@ -40,9 +40,9 @@ static void *dev_no_pool;	/**< pool to grab device numbers from */
 static int visornic_probe(struct visor_device *dev);
 static void visornic_remove(struct visor_device *dev);
 static int visornic_pause(struct visor_device *dev,
-			  VISORBUS_STATE_COMPLETE_FUNC complete_func);
+			  visorbus_state_complete_func complete_func);
 static int visornic_resume(struct visor_device *dev,
-			   VISORBUS_STATE_COMPLETE_FUNC complete_func);
+			   visorbus_state_complete_func complete_func);
 /** DEBUGFS declarations
  */
 static ssize_t info_debugfs_read(struct file *file, char __user *buf,
@@ -204,14 +204,14 @@ static void visornic_remove(struct visor_device *dev)
 }
 
 static int visornic_pause(struct visor_device *dev,
-			  VISORBUS_STATE_COMPLETE_FUNC complete_func)
+			  visorbus_state_complete_func complete_func)
 {
 	complete_func(dev, 0);
 	return 0;
 }
 
 static int visornic_resume(struct visor_device *dev,
-			   VISORBUS_STATE_COMPLETE_FUNC complete_func)
+			   visorbus_state_complete_func complete_func)
 {
 	complete_func(dev, 0);
 	return 0;

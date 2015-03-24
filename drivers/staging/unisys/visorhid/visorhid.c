@@ -47,9 +47,9 @@ static int visorhid_probe(struct visor_device *dev);
 static void visorhid_remove(struct visor_device *dev);
 static void visorhid_channel_interrupt(struct visor_device *dev);
 static int visorhid_pause(struct visor_device *dev,
-			  VISORBUS_STATE_COMPLETE_FUNC complete_func);
+			  visorbus_state_complete_func complete_func);
 static int visorhid_resume(struct visor_device *dev,
-			   VISORBUS_STATE_COMPLETE_FUNC complete_func);
+			   visorbus_state_complete_func complete_func);
 static struct input_dev *register_client_keyboard(void);
 static struct input_dev *register_client_mouse(void);
 static struct input_dev *register_client_wheel(void);
@@ -797,7 +797,7 @@ cleanups:
 
 static int
 visorhid_pause(struct visor_device *dev,
-	       VISORBUS_STATE_COMPLETE_FUNC complete_func)
+	       visorbus_state_complete_func complete_func)
 {
 	bool locked = FALSE;
 	int rc = -1;
@@ -824,7 +824,7 @@ cleanups:
 
 static int
 visorhid_resume(struct visor_device *dev,
-		VISORBUS_STATE_COMPLETE_FUNC complete_func)
+		visorbus_state_complete_func complete_func)
 {
 	bool locked = FALSE;
 	int rc = -1;

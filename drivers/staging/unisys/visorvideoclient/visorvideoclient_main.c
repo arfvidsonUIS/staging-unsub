@@ -40,9 +40,9 @@ static void *dev_no_pool;	/**< pool to grab device numbers from */
 static int visorvideoclient_probe(struct visor_device *dev);
 static void visorvideoclient_remove(struct visor_device *dev);
 static int visorvideoclient_pause(struct visor_device *dev,
-				  VISORBUS_STATE_COMPLETE_FUNC complete_func);
+				  visorbus_state_complete_func complete_func);
 static int visorvideoclient_resume(struct visor_device *dev,
-				   VISORBUS_STATE_COMPLETE_FUNC complete_func);
+				   visorbus_state_complete_func complete_func);
 
 /**  GUIDS for all channel types supported by this driver.
  */
@@ -210,7 +210,7 @@ visorvideoclient_remove(struct visor_device *dev)
 
 static int
 visorvideoclient_pause(struct visor_device *dev,
-		       VISORBUS_STATE_COMPLETE_FUNC complete_func)
+		       visorbus_state_complete_func complete_func)
 {
 	complete_func(dev, 0);
 	return 0;
@@ -218,7 +218,7 @@ visorvideoclient_pause(struct visor_device *dev,
 
 static int
 visorvideoclient_resume(struct visor_device *dev,
-			VISORBUS_STATE_COMPLETE_FUNC complete_func)
+			visorbus_state_complete_func complete_func)
 {
 	complete_func(dev, 0);
 	return 0;
