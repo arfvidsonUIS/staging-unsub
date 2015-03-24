@@ -58,11 +58,24 @@ static void unregister_client_input(struct input_dev *visorinput_dev);
 /**  GUIDS for all channel types supported by this driver.
  */
 static struct visor_channeltype_descriptor visorhid_channel_types[] = {
-	{SPAR_KEYBOARD_CHANNEL_PROTOCOL_UUID, "keyboard",
-	 KEYBOARD_CH_SIZE, KEYBOARD_CH_SIZE},
-	{SPAR_MOUSE_CHANNEL_PROTOCOL_UUID, "mouse",
-	 MOUSE_CH_SIZE, MOUSE_CH_SIZE},
-	{ NULL_UUID_LE, NULL, 0, 0}
+	{
+		.guid = SPAR_KEYBOARD_CHANNEL_PROTOCOL_UUID,
+		.name = "keyboard",
+		.min_size = KEYBOARD_CH_SIZE,
+		.max_size = KEYBOARD_CH_SIZE
+	},
+	{
+		.guid = SPAR_MOUSE_CHANNEL_PROTOCOL_UUID,
+		.name = "mouse",
+		.min_size = MOUSE_CH_SIZE,
+		.max_size = MOUSE_CH_SIZE
+	},
+	{
+		.guid = NULL_UUID_LE,
+		.name = NULL,
+		.min_size = 0,
+		.max_size = 0
+	}
 };
 
 /** This is used to tell the visor bus driver which types of visor devices
