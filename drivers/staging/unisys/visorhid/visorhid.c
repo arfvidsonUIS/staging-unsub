@@ -273,12 +273,11 @@ devdata_create(struct visor_device *dev)
 	uuid_le guid;
 
 	guid = visorchannel_get_uuid(dev->visorchannel);
-	devdata = kmalloc(sizeof(*devdata),
-			  GFP_KERNEL | __GFP_NORETRY);
+	devdata = kzalloc(sizeof(*devdata),
+			   GFP_KERNEL | __GFP_NORETRY);
 	if (!devdata)
 			goto cleanups;
 
-	memset(devdata, '\0', sizeof(struct visorhid_devdata));
 	spin_lock(&devnopool_lock);
 	devno = find_first_zero_bit(dev_no_pool, MAXDEVICES);
 	set_bit(devno, dev_no_pool);
