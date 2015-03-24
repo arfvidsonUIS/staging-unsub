@@ -38,6 +38,7 @@
 
 #define PIXELS_ACROSS_DEFAULT 800
 #define PIXELS_DOWN_DEFAULT   600
+#define DEV_NAME_SIZE 99
 #define SYSFS_VIRTUALSIZE "/sys/class/graphics/fb0/virtual_size"
 
 static spinlock_t devnopool_lock;
@@ -103,7 +104,7 @@ struct visorhid_devdata {
 	struct visor_device *dev;
 	/** lock for dev */
 	struct rw_semaphore lock_visor_dev;
-	char name[99];
+	char name[DEV_NAME_SIZE];
 	struct list_head list_all;   /**< link within list_all_devices list */
 	struct kref kref;
 	struct input_dev *visorinput_dev;
