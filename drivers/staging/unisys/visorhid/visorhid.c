@@ -105,7 +105,7 @@ struct visorhid_devdata {
 	/** lock for dev */
 	struct rw_semaphore lock_visor_dev;
 	char name[DEV_NAME_SIZE];
-	struct list_head list_all;   /**< link within list_all_devices list */
+	struct list_head list_all;   /* < link within list_all_devices list */
 	struct kref kref;
 	struct input_dev *visorinput_dev;
 	struct input_dev *visorinput_dev2;
