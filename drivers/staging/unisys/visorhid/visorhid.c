@@ -427,7 +427,7 @@ register_client_keyboard(void)
 
 	visorinput_dev = input_allocate_device();
 	if (!visorinput_dev)
-			return NULL;
+		return NULL;
 
 	visorinput_dev->name = "visor Keyboard";
 	visorinput_dev->phys = "visorkbd/input0";
