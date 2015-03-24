@@ -458,31 +458,6 @@ register_client_keyboard(void)
 	return visorinput_dev;
 }
 
-/* register_client_mouse() initializes and returns a Linux gizmo that we
- * can use to deliver mouse inputs to Linux.  We of course do this when
- * we see mouse inputs coming in on a mouse channel.
- *
- * Note that in order to use the mouse in X, it needs to be declared like
- * this in xorg.conf:
- *
- *    Section "InputDevice"
- *      Driver       "evdev"
- *      Identifier   "sPAR virtual mouse"
- *      Option       "Device" "/dev/input/event1"
- *      Option       "AccelerationProfile" "-1"
- *      Option       "AccelerationScheme" "none"
- *      Option       "CorePointer"
- *    EndSection
- *
- * Then reference that from your ServerLayout section, like this:
- *
- *    InputDevice  "sPAR virtual mouse" "CoreMouse"
- *
- * This command can be used to determine which /dev/input/event* device
- * is the sPAR mouse:
- *
- *    udevadm info --attribute-walk --name=/dev/input/event*
- */
 static struct input_dev *
 register_client_mouse(void)
 {
@@ -538,31 +513,6 @@ register_client_mouse(void)
 	return visorinput_dev;
 }
 
-/* register_client_wheel() initializes and returns a Linux gizmo that we
- * can use to deliver mouse wheel inputs to Linux.  We of course do this when
- * we see wheel inputs coming in on a mouse channel.  It would be NICE to be
- * able to report wheel events on the mouse device, but X can't deal with a
- * single device that has both absolute (X and Y) and relative (wheel) axes.
- * That's why we create 2 devices for Linux: 1 mouse device and 1 wheel device.
- *
- * Note that in order to use the wheel in X, it needs to be declared like
- * this in xorg.conf:
- *
- *    Section "InputDevice"
- *      Driver       "evdev"
- *      Identifier   "sPAR virtual wheel"
- *      Option       "Device" "/dev/input/event4"
- *    EndSection
- *
- * Then reference that from your ServerLayout section, like this:
- *
- *    InputDevice  "sPAR virtual wheel"
- *
- * This command can be used to determine which /dev/input/event* device
- * is the sPAR wheel:
- *
- *    udevadm info --attribute-walk --name=/dev/input/event*
- */
 static struct input_dev *
 register_client_wheel(void)
 {
