@@ -872,11 +872,11 @@ visorhid_cleanup(void)
 
 module_param_named(debug, visorhid_debug, int, S_IRUGO);
 MODULE_PARM_DESC(visorhid_debug, "1 to debug");
-int visorhid_debug = 0;
+int visorhid_debug;
 
 module_param_named(debugref, visorhid_debugref, int, S_IRUGO);
 MODULE_PARM_DESC(visorhid_debugref, "1 to debug reference counts");
-int visorhid_debugref = 0;
+int visorhid_debugref;
 
 module_init(visorhid_init);
 module_exit(visorhid_cleanup);
