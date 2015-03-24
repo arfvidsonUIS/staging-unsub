@@ -41,7 +41,7 @@
 #define SYSFS_VIRTUALSIZE "/sys/class/graphics/fb0/virtual_size"
 
 static spinlock_t devnopool_lock;
-static void *dev_no_pool; /**< pool to grab device numbers from */
+static void *dev_no_pool; /* < pool to grab device numbers from */
 
 static int visorhid_probe(struct visor_device *dev);
 static void visorhid_remove(struct visor_device *dev);
@@ -55,8 +55,7 @@ static struct input_dev *register_client_mouse(void);
 static struct input_dev *register_client_wheel(void);
 static void unregister_client_input(struct input_dev *visorinput_dev);
 
-/**  GUIDS for all channel types supported by this driver.
- */
+/* GUIDS for all channel types supported by this driver. */
 static struct visor_channeltype_descriptor visorhid_channel_types[] = {
 	{
 		.guid = SPAR_KEYBOARD_CHANNEL_PROTOCOL_UUID,
@@ -234,8 +233,9 @@ static unsigned char visorkbd_keycode[256] = {	/* American layout */
 	[113] = KEY_MUTE
 };
 
-/* This maps the <xx> in extended scancodes of the form "0xE0 <xx>" into */
-/* keycodes. */
+/* This maps the <xx> in extended scancodes of the form "0xE0 <xx>" into 
+ * keycodes.
+ */
 static unsigned char ext_keycode[256] = {
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	/* 0x00 */
 	0, 0, 0, 0, 0, 0, 0, 0,	/* 0x10 */
@@ -279,7 +279,8 @@ devdata_create(struct visor_device *dev)
 
 	/* This is an input device in a client guest partition,
 	 * so we need to create whatever gizmos are necessary to
-	 * deliver our inputs to the guest OS. */
+	 * deliver our inputs to the guest OS.
+	 */
 	if (memcmp(&guid, &spar_keyboard_channel_protocol_uuid,
 		   sizeof(guid)) == 0) {
 		devdata->visorinput_dev = register_client_keyboard();
@@ -523,9 +524,9 @@ register_client_mouse(void)
 	}
 
 	/* Sending top-left and bottom-right positions is ABSOLUTELY
-	* REQUIRED if we want X to move the mouse to the exact points
-	* we tell it.  I have NO IDEA why.
-	*/
+	 * REQUIRED if we want X to move the mouse to the exact points
+	 * we tell it.  I have NO IDEA why.
+	 */
 	input_report_abs(visorinput_dev, ABS_X, 0);
 	input_report_abs(visorinput_dev, ABS_Y, 0);
 	input_sync(visorinput_dev);
@@ -579,9 +580,9 @@ register_client_wheel(void)
 	visorinput_dev->id.version = 0x0100;
 
 	/* We need to lie a little to prevent the evdev driver "Don't
-	* know how to use device" error.  (evdev erroneously thinks
-	* that a device without an X and Y axis is useless.)
-	*/
+	 * know how to use device" error.  (evdev erroneously thinks
+	 * that a device without an X and Y axis is useless.)
+	 */
 	visorinput_dev->evbit[0] = BIT_MASK(EV_REL)
 	    | /*lie */ BIT_MASK(EV_KEY)	/*lie */
 	    ;
@@ -809,7 +810,7 @@ visorhid_pause(struct visor_device *dev,
 	locked = TRUE;
 	if (devdata->paused)
 			goto cleanups;
-	/* SLEEP(5);  // test */
+	/* SLEEP(5); test */
 	devdata->paused = TRUE;
 	complete_func(dev, 0);
 	rc = 0;
