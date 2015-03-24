@@ -436,8 +436,12 @@ register_client_keyboard(void)
 	visorinput_dev->id.product = 0x0001;
 	visorinput_dev->id.version = 0x0100;
 
-	visorinput_dev->evbit[0] = BIT_MASK(EV_KEY) | BIT_MASK(EV_REP) | BIT_MASK(EV_LED);
-	visorinput_dev->ledbit[0] = BIT_MASK(LED_CAPSL) | BIT_MASK(LED_SCROLLL) | BIT_MASK(LED_NUML);
+	visorinput_dev->evbit[0] = BIT_MASK(EV_KEY) |
+				   BIT_MASK(EV_REP) |
+				   BIT_MASK(EV_LED);
+	visorinput_dev->ledbit[0] = BIT_MASK(LED_CAPSL) |
+				    BIT_MASK(LED_SCROLLL) |
+				    BIT_MASK(LED_NUML);
 	visorinput_dev->keycode = visorkbd_keycode;
 	visorinput_dev->keycodesize = sizeof(unsigned char);
 	visorinput_dev->keycodemax = ARRAY_SIZE(visorkbd_keycode);
@@ -579,13 +583,11 @@ register_client_wheel(void)
 	 * know how to use device" error.  (evdev erroneously thinks
 	 * that a device without an X and Y axis is useless.)
 	 */
-	visorinput_dev->evbit[0] = BIT_MASK(EV_REL)
-	    | /*lie */ BIT_MASK(EV_KEY)	/*lie */
-	    ;
-	visorinput_dev->relbit[0] = BIT_MASK(REL_WHEEL)
-	    | /*lie */ BIT_MASK(REL_X)	/*lie */
-	    | /*lie */ BIT_MASK(REL_Y)	/*lie */
-	    ;
+	visorinput_dev->evbit[0] = BIT_MASK(EV_REL) |
+			/*lie */   BIT_MASK(EV_KEY);
+	visorinput_dev->relbit[0] = BIT_MASK(REL_WHEEL) |
+			/*lie */    BIT_MASK(REL_X) |
+			/*lie */    BIT_MASK(REL_Y);
 	set_bit(BTN_LEFT, visorinput_dev->keybit);	/*lie */
 	set_bit(BTN_RIGHT, visorinput_dev->keybit);	/*lie */
 	set_bit(BTN_MIDDLE, visorinput_dev->keybit);	/*lie */
