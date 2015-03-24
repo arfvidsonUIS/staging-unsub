@@ -95,7 +95,7 @@ static struct visor_driver visorhid_driver = {
 	.resume = visorhid_resume,
 };
 
-/** This is the private data that we store for each device.
+/*  This is the private data that we store for each device.
  *  A pointer to this struct is kept in each "struct device", and can be
  *  obtained using visor_get_drvdata(dev).
  */
@@ -113,8 +113,9 @@ struct visorhid_devdata {
 	bool paused;
 };
 
-/** List of all visorhid_devdata structs,
-  * linked via the list_all member */
+ /* List of all visorhid_devdata structs,
+  * linked via the list_all member
+  */
 static LIST_HEAD(list_all_devices);
 static DEFINE_SPINLOCK(lock_all_devices);
 
@@ -260,7 +261,7 @@ devdata_create(struct visor_device *dev)
 
 	guid = visorchannel_get_uuid(dev->visorchannel);
 	devdata = kzalloc(sizeof(*devdata),
-			   GFP_KERNEL | __GFP_NORETRY);
+			  GFP_KERNEL | __GFP_NORETRY);
 	if (!devdata)
 			goto cleanups;
 
