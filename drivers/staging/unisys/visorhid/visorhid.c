@@ -118,20 +118,6 @@ struct visorhid_devdata {
 static LIST_HEAD(list_all_devices);
 static DEFINE_SPINLOCK(lock_all_devices);
 
-#define devdata_put(devdata, why)					\
-	{								\
-		int refcount;						\
-		kref_put(&devdata->kref, devdata_release);		\
-		refcount = atomic_read(&devdata->kref.refcount);	\
-	}
-
-#define devdata_get(deevdata, why)					\
-	{								\
-		int refcount;						\
-		kref_get(&devdata->kref);				\
-		refcount = atomic_read(&devdata->kref.refcount);	\
-	}
-
 /* Borrowed from drivers/input/keyboard/atakbd.c */
 /* This maps 1-byte scancodes to keycodes. */
 static unsigned char visorkbd_keycode[256] = {	/* American layout */
@@ -383,7 +369,7 @@ visorhid_probe(struct visor_device *dev)
 cleanups:
 	if (rc < 0) {
 		if (devdata)
-			devdata_put(devdata, "existence");
+			kref_put(&devdata->kref, devdata_release);
 	}
 	return rc;
 }
@@ -411,7 +397,7 @@ visorhid_remove(struct visor_device *dev)
 	devdata->visorinput_dev = NULL;
 	unregister_client_input(devdata->visorinput_dev2);
 	devdata->visorinput_dev2 = NULL;
-	devdata_put(devdata, "existence");
+	kref_put(&devdata->kref, devdata_release);
 }
 
 static void
