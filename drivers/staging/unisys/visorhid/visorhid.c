@@ -96,8 +96,8 @@ struct visorhid_devdata {
 	struct kref kref;
 	struct input_dev *visorinput_dev;
 	struct input_dev *visorinput_dev2;
-	BOOL supported_client_device;
-	BOOL paused;
+	bool supported_client_device;
+	bool paused;
 };
 
 /** List of all visorhid_devdata structs,
@@ -691,7 +691,7 @@ visorhid_channel_interrupt(struct visor_device *dev)
 	struct input_dev *visorinput_dev2;
 	int xmotion, ymotion, zmotion, button;
 	int i;
-	BOOL locked = FALSE;
+	bool locked = FALSE;
 
 	struct visorhid_devdata *devdata = visor_get_drvdata(dev);
 
@@ -799,7 +799,7 @@ static int
 visorhid_pause(struct visor_device *dev,
 	       VISORBUS_STATE_COMPLETE_FUNC complete_func)
 {
-	BOOL locked = FALSE;
+	bool locked = FALSE;
 	int rc = -1;
 	struct visorhid_devdata *devdata = visor_get_drvdata(dev);
 
@@ -826,7 +826,7 @@ static int
 visorhid_resume(struct visor_device *dev,
 		VISORBUS_STATE_COMPLETE_FUNC complete_func)
 {
-	BOOL locked = FALSE;
+	bool locked = FALSE;
 	int rc = -1;
 	struct visorhid_devdata *devdata = visor_get_drvdata(dev);
 
