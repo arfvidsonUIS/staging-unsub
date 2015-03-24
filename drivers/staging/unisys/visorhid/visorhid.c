@@ -357,7 +357,8 @@ visorhid_probe(struct visor_device *dev)
 	}
 	visor_set_drvdata(dev, devdata);
 	guid = visorchannel_get_uuid(dev->visorchannel);
-	if (memcmp(&guid, &spar_mouse_channel_protocol_uuid, sizeof(guid)) != 0 && memcmp(&guid, &spar_keyboard_channel_protocol_uuid, sizeof(guid)) != 0) {
+	if ((memcmp(&guid, &spar_mouse_channel_protocol_uuid, sizeof(guid)) != 0) &&
+	    (memcmp(&guid, &spar_keyboard_channel_protocol_uuid, sizeof(guid)) != 0)) {
 		rc = -1;
 		goto cleanups;
 	}
