@@ -436,10 +436,8 @@ register_client_keyboard(void)
 	visorinput_dev->id.product = 0x0001;
 	visorinput_dev->id.version = 0x0100;
 
-	visorinput_dev->evbit[0] = BIT_MASK(EV_KEY) | BIT_MASK(EV_REP)
-	    | BIT_MASK(EV_LED);
-	visorinput_dev->ledbit[0] = BIT_MASK(LED_CAPSL)
-	    | BIT_MASK(LED_SCROLLL) | BIT_MASK(LED_NUML);
+	visorinput_dev->evbit[0] = BIT_MASK(EV_KEY) | BIT_MASK(EV_REP) | BIT_MASK(EV_LED);
+	visorinput_dev->ledbit[0] = BIT_MASK(LED_CAPSL) | BIT_MASK(LED_SCROLLL) | BIT_MASK(LED_NUML);
 	visorinput_dev->keycode = visorkbd_keycode;
 	visorinput_dev->keycodesize = sizeof(unsigned char);
 	visorinput_dev->keycodemax = ARRAY_SIZE(visorkbd_keycode);
