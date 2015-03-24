@@ -233,7 +233,7 @@ static unsigned char visorkbd_keycode[256] = {	/* American layout */
 	[113] = KEY_MUTE
 };
 
-/* This maps the <xx> in extended scancodes of the form "0xE0 <xx>" into 
+/* This maps the <xx> in extended scancodes of the form "0xE0 <xx>" into
  * keycodes.
  */
 static unsigned char ext_keycode[256] = {
