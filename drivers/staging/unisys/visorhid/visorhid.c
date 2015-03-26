@@ -1,0 +1,837 @@
+/* visorhid.c
+ *
+ * Copyright (c) 2011 - 2014 UNISYS CORPORATION
+ * All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or (at
+ * your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE, GOOD TITLE or
+ * NON INFRINGEMENT.  See the GNU General Public License for more
+ * details.
+ */
+
+/* This driver lives in a generic guest Linux partition, and registers to
+ * receive keyboard and mouse channels from the visorbus driver.  It reads
+ * inputs from such channels, and delivers it to the Linux OS in the
+ * standard way the Linux expects for input drivers.
+ */
+
+#include "diagnostics/appos_subsystems.h"
+#include "timskmod.h"
+#include "globals.h"
+#include "visorbus.h"
+#include "visorchannel.h"
+#include "keyboardchannel.h"
+#include "mousechannel.h"
+#include <linux/input.h>
+#include <linux/serio.h>
+#include <linux/fs.h>
+#include <linux/fb.h>
+#include <asm/segment.h>
+#include <linux/uaccess.h>
+#include <linux/buffer_head.h>
+
+#define PIXELS_ACROSS_DEFAULT 800
+#define PIXELS_DOWN_DEFAULT   600
+#define DEV_NAME_SIZE 99
+#define SYSFS_VIRTUALSIZE "/sys/class/graphics/fb0/virtual_size"
+
+static spinlock_t devnopool_lock;
+static void *dev_no_pool; /* < pool to grab device numbers from */
+
+static int visorhid_probe(struct visor_device *dev);
+static void visorhid_remove(struct visor_device *dev);
+static void visorhid_channel_interrupt(struct visor_device *dev);
+static int visorhid_pause(struct visor_device *dev,
+			  visorbus_state_complete_func complete_func);
+static int visorhid_resume(struct visor_device *dev,
+			   visorbus_state_complete_func complete_func);
+static struct input_dev *register_client_keyboard(void);
+static struct input_dev *register_client_mouse(void);
+static struct input_dev *register_client_wheel(void);
+static void unregister_client_input(struct input_dev *visorinput_dev);
+
+/* GUIDS for all channel types supported by this driver. */
+static struct visor_channeltype_descriptor visorhid_channel_types[] = {
+	{
+		.guid = SPAR_KEYBOARD_CHANNEL_PROTOCOL_UUID,
+		.name = "keyboard",
+		.min_size = KEYBOARD_CH_SIZE,
+		.max_size = KEYBOARD_CH_SIZE
+	},
+	{
+		.guid = SPAR_MOUSE_CHANNEL_PROTOCOL_UUID,
+		.name = "mouse",
+		.min_size = MOUSE_CH_SIZE,
+		.max_size = MOUSE_CH_SIZE
+	},
+	{
+		.guid = NULL_UUID_LE,
+		.name = NULL,
+		.min_size = 0,
+		.max_size = 0
+	}
+};
+
+/** This is used to tell the visor bus driver which types of visor devices
+ *  we support, and what functions to call when a visor device that we support
+ *  is attached or removed.
+ */
+static struct visor_driver visorhid_driver = {
+	.name = MYDRVNAME,
+	.version = VERSION,
+	.vertag = NULL,
+	.owner = THIS_MODULE,
+	.channel_types = visorhid_channel_types,
+	.probe = visorhid_probe,
+	.remove = visorhid_remove,
+	.channel_interrupt = visorhid_channel_interrupt,
+	.pause = visorhid_pause,
+	.resume = visorhid_resume,
+};
+
+/*  This is the private data that we store for each device.
+ *  A pointer to this struct is kept in each "struct device"
+ */
+struct visorhid_devdata {
+	int devno;
+	struct visor_device *dev;
+	/** lock for dev */
+	struct rw_semaphore lock_visor_dev;
+	char name[DEV_NAME_SIZE];
+	struct list_head list_all;   /* < link within list_all_devices list */
+	struct kref kref;
+	struct input_dev *visorinput_dev;
+	struct input_dev *visorinput_dev2;
+	bool supported_client_device;
+	bool paused;
+};
+
+ /* List of all visorhid_devdata structs,
+  * linked via the list_all member
+  */
+static LIST_HEAD(list_all_devices);
+static DEFINE_SPINLOCK(lock_all_devices);
+
+/* Borrowed from drivers/input/keyboard/atakbd.c */
+/* This maps 1-byte scancodes to keycodes. */
+static unsigned char visorkbd_keycode[256] = {	/* American layout */
+	[0] = KEY_GRAVE,
+	[1] = KEY_ESC,
+	[2] = KEY_1,
+	[3] = KEY_2,
+	[4] = KEY_3,
+	[5] = KEY_4,
+	[6] = KEY_5,
+	[7] = KEY_6,
+	[8] = KEY_7,
+	[9] = KEY_8,
+	[10] = KEY_9,
+	[11] = KEY_0,
+	[12] = KEY_MINUS,
+	[13] = KEY_EQUAL,
+	[14] = KEY_BACKSPACE,
+	[15] = KEY_TAB,
+	[16] = KEY_Q,
+	[17] = KEY_W,
+	[18] = KEY_E,
+	[19] = KEY_R,
+	[20] = KEY_T,
+	[21] = KEY_Y,
+	[22] = KEY_U,
+	[23] = KEY_I,
+	[24] = KEY_O,
+	[25] = KEY_P,
+	[26] = KEY_LEFTBRACE,
+	[27] = KEY_RIGHTBRACE,
+	[28] = KEY_ENTER,
+	[29] = KEY_LEFTCTRL,
+	[30] = KEY_A,
+	[31] = KEY_S,
+	[32] = KEY_D,
+	[33] = KEY_F,
+	[34] = KEY_G,
+	[35] = KEY_H,
+	[36] = KEY_J,
+	[37] = KEY_K,
+	[38] = KEY_L,
+	[39] = KEY_SEMICOLON,
+	[40] = KEY_APOSTROPHE,
+	[41] = KEY_GRAVE,	/* FIXME, '#' */
+	[42] = KEY_LEFTSHIFT,
+	[43] = KEY_BACKSLASH,	/* FIXME, '~' */
+	[44] = KEY_Z,
+	[45] = KEY_X,
+	[46] = KEY_C,
+	[47] = KEY_V,
+	[48] = KEY_B,
+	[49] = KEY_N,
+	[50] = KEY_M,
+	[51] = KEY_COMMA,
+	[52] = KEY_DOT,
+	[53] = KEY_SLASH,
+	[54] = KEY_RIGHTSHIFT,
+	[55] = KEY_KPASTERISK,
+	[56] = KEY_LEFTALT,
+	[57] = KEY_SPACE,
+	[58] = KEY_CAPSLOCK,
+	[59] = KEY_F1,
+	[60] = KEY_F2,
+	[61] = KEY_F3,
+	[62] = KEY_F4,
+	[63] = KEY_F5,
+	[64] = KEY_F6,
+	[65] = KEY_F7,
+	[66] = KEY_F8,
+	[67] = KEY_F9,
+	[68] = KEY_F10,
+	[69] = KEY_NUMLOCK,
+	[70] = KEY_SCROLLLOCK,
+	[71] = KEY_KP7,
+	[72] = KEY_KP8,
+	[73] = KEY_KP9,
+	[74] = KEY_KPMINUS,
+	[75] = KEY_KP4,
+	[76] = KEY_KP5,
+	[77] = KEY_KP6,
+	[78] = KEY_KPPLUS,
+	[79] = KEY_KP1,
+	[80] = KEY_KP2,
+	[81] = KEY_KP3,
+	[82] = KEY_KP0,
+	[83] = KEY_KPDOT,
+	[87] = KEY_F11,
+	[88] = KEY_F12,
+	[90] = KEY_KPLEFTPAREN,
+	[91] = KEY_KPRIGHTPAREN,
+	[92] = KEY_KPASTERISK,	/* FIXME */
+	[93] = KEY_KPASTERISK,
+	[94] = KEY_KPPLUS,
+	[95] = KEY_HELP,
+	[96] = KEY_KPENTER,
+	[97] = KEY_RIGHTCTRL,
+	[98] = KEY_KPSLASH,
+	[99] = KEY_KPLEFTPAREN,
+	[100] = KEY_KPRIGHTPAREN,
+	[101] = KEY_KPSLASH,
+	[102] = KEY_HOME,
+	[103] = KEY_UP,
+	[104] = KEY_PAGEUP,
+	[105] = KEY_LEFT,
+	[106] = KEY_RIGHT,
+	[107] = KEY_END,
+	[108] = KEY_DOWN,
+	[109] = KEY_PAGEDOWN,
+	[110] = KEY_INSERT,
+	[111] = KEY_DELETE,
+	[112] = KEY_MACRO,
+	[113] = KEY_MUTE
+};
+
+/* This maps the <xx> in extended scancodes of the form "0xE0 <xx>" into
+ * keycodes.
+ */
+static unsigned char ext_keycode[256] = {
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	/* 0x00 */
+	0, 0, 0, 0, 0, 0, 0, 0,	/* 0x10 */
+	0, 0, 0, 0, KEY_KPENTER, KEY_RIGHTCTRL, 0, 0,	/* 0x18 */
+	0, 0, 0, 0, 0, 0, 0, 0,	/* 0x20 */
+	KEY_RIGHTALT, 0, 0, 0, 0, 0, 0, 0,	/* 0x28 */
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	/* 0x30 */
+	0, 0, 0, 0, 0, 0, 0, KEY_HOME,	/* 0x40 */
+	KEY_UP, KEY_PAGEUP, 0, KEY_LEFT, 0, KEY_RIGHT, 0, KEY_END, /* 0x48 */
+	KEY_DOWN, KEY_PAGEDOWN, KEY_INSERT, KEY_DELETE, 0, 0, 0, 0, /* 0x50 */
+	0, 0, 0, 0, 0, 0, 0, 0,	/* 0x58 */
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	/* 0x60 */
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	/* 0x70 */
+};
+
+static struct visorhid_devdata *
+devdata_create(struct visor_device *dev)
+{
+	void *rc = NULL;
+	struct visorhid_devdata *devdata = NULL;
+	int devno = -1;
+	uuid_le guid;
+
+	guid = visorchannel_get_uuid(dev->visorchannel);
+	devdata = kzalloc(sizeof(*devdata),
+			  GFP_KERNEL | __GFP_NORETRY);
+	if (!devdata)
+			goto cleanups;
+
+	spin_lock(&devnopool_lock);
+	devno = find_first_zero_bit(dev_no_pool, MAXDEVICES);
+	set_bit(devno, dev_no_pool);
+	spin_unlock(&devnopool_lock);
+	if (devno == MAXDEVICES)
+		devno = -1;
+	if (devno < 0)
+			goto cleanups;
+	devdata->devno = devno;
+	devdata->dev = dev;
+	strncpy(devdata->name, dev_name(&dev->device), sizeof(devdata->name));
+
+	/* This is an input device in a client guest partition,
+	 * so we need to create whatever gizmos are necessary to
+	 * deliver our inputs to the guest OS.
+	 */
+	if (memcmp(&guid, &spar_keyboard_channel_protocol_uuid,
+		   sizeof(guid)) == 0) {
+		devdata->visorinput_dev = register_client_keyboard();
+		if (!devdata->visorinput_dev)
+				goto cleanups;
+		devdata->supported_client_device = TRUE;
+	} else if (memcmp(&guid, &spar_mouse_channel_protocol_uuid,
+			  sizeof(guid)) == 0) {
+		devdata->visorinput_dev = register_client_mouse();
+		if (!devdata->visorinput_dev)
+				goto cleanups;
+		devdata->visorinput_dev2 = register_client_wheel();
+		if (!devdata->visorinput_dev2)
+				goto cleanups;
+		devdata->supported_client_device = TRUE;
+	}
+
+	init_rwsem(&devdata->lock_visor_dev);
+	kref_init(&devdata->kref);
+
+	spin_lock(&lock_all_devices);
+	list_add_tail(&devdata->list_all, &list_all_devices);
+	spin_unlock(&lock_all_devices);
+
+	rc = devdata;
+cleanups:
+	if (!rc) {
+		if (devno >= 0) {
+			spin_lock(&devnopool_lock);
+			clear_bit(devno, dev_no_pool);
+			spin_unlock(&devnopool_lock);
+		}
+		if (devdata) {
+			if (devdata->visorinput_dev) {
+				unregister_client_input
+				    (devdata->visorinput_dev);
+				devdata->visorinput_dev = NULL;
+			}
+			if (devdata->visorinput_dev2) {
+				unregister_client_input
+				    (devdata->visorinput_dev2);
+				devdata->visorinput_dev2 = NULL;
+			}
+			kfree(devdata);
+		}
+	}
+	return rc;
+}
+
+static void
+devdata_release(struct kref *mykref)
+{
+	struct visorhid_devdata *devdata =
+	    container_of(mykref, struct visorhid_devdata, kref);
+	spin_lock(&devnopool_lock);
+	clear_bit(devdata->devno, dev_no_pool);
+	spin_unlock(&devnopool_lock);
+	spin_lock(&lock_all_devices);
+	list_del(&devdata->list_all);
+	spin_unlock(&lock_all_devices);
+}
+
+static int
+visorhid_probe(struct visor_device *dev)
+{
+	int rc = 0;
+	struct visorhid_devdata *devdata = NULL;
+	uuid_le guid;
+
+	devdata = devdata_create(dev);
+	if (!devdata) {
+		rc = -1;
+		goto cleanups;
+	}
+	dev_set_drvdata(&dev->device, devdata);
+	guid = visorchannel_get_uuid(dev->visorchannel);
+	if ((memcmp(&guid, &spar_mouse_channel_protocol_uuid, sizeof(guid)) != 0) &&
+	    (memcmp(&guid, &spar_keyboard_channel_protocol_uuid, sizeof(guid)) != 0)) {
+		rc = -1;
+		goto cleanups;
+	}
+
+	if (devdata->supported_client_device)
+		visorbus_enable_channel_interrupts(dev);
+
+cleanups:
+	if (rc < 0) {
+		if (devdata)
+			kref_put(&devdata->kref, devdata_release);
+	}
+	return rc;
+}
+
+static void
+host_side_disappeared(struct visorhid_devdata *devdata)
+{
+	down_write(&devdata->lock_visor_dev);
+	sprintf(devdata->name, "<dev#%d-history>", devdata->devno);
+	devdata->dev = NULL;	/* indicate device destroyed */
+	up_write(&devdata->lock_visor_dev);
+}
+
+static void
+visorhid_remove(struct visor_device *dev)
+{
+	struct visorhid_devdata *devdata = dev_get_drvdata(&dev->device);
+
+	if (!devdata)
+			return;
+
+	dev_set_drvdata(&dev->device, NULL);
+	host_side_disappeared(devdata);
+	unregister_client_input(devdata->visorinput_dev);
+	devdata->visorinput_dev = NULL;
+	unregister_client_input(devdata->visorinput_dev2);
+	devdata->visorinput_dev2 = NULL;
+	kref_put(&devdata->kref, devdata_release);
+}
+
+static void
+visorhid_cleanup_guts(void)
+{
+	visorbus_unregister_visor_driver(&visorhid_driver);
+		kfree(dev_no_pool);
+		dev_no_pool = NULL;
+}
+
+static void
+unregister_client_input(struct input_dev *visorinput_dev)
+{
+	if (visorinput_dev)
+			input_unregister_device(visorinput_dev);
+}
+
+/* register_client_keyboard() initializes and returns a Linux gizmo that we
+ * can use to deliver keyboard inputs to Linux.  We of course do this when
+ * we see keyboard inputs coming in on a keyboard channel.
+ */
+static struct input_dev *
+register_client_keyboard(void)
+{
+	int i, error;
+	struct input_dev *visorinput_dev = NULL;
+
+	visorinput_dev = input_allocate_device();
+	if (!visorinput_dev)
+		return NULL;
+
+	visorinput_dev->name = "visor Keyboard";
+	visorinput_dev->phys = "visorkbd/input0";
+	visorinput_dev->id.bustype = BUS_HOST;
+	visorinput_dev->id.vendor = 0x0001;
+	visorinput_dev->id.product = 0x0001;
+	visorinput_dev->id.version = 0x0100;
+
+	visorinput_dev->evbit[0] = BIT_MASK(EV_KEY) |
+				   BIT_MASK(EV_REP) |
+				   BIT_MASK(EV_LED);
+	visorinput_dev->ledbit[0] = BIT_MASK(LED_CAPSL) |
+				    BIT_MASK(LED_SCROLLL) |
+				    BIT_MASK(LED_NUML);
+	visorinput_dev->keycode = visorkbd_keycode;
+	visorinput_dev->keycodesize = sizeof(unsigned char);
+	visorinput_dev->keycodemax = ARRAY_SIZE(visorkbd_keycode);
+
+	for (i = 1; i < ARRAY_SIZE(visorkbd_keycode); i++)
+		set_bit(visorkbd_keycode[i], visorinput_dev->keybit);
+
+	error = input_register_device(visorinput_dev);
+	if (error) {
+		input_free_device(visorinput_dev);
+		return NULL;
+	}
+	return visorinput_dev;
+}
+
+static struct input_dev *
+register_client_mouse(void)
+{
+	int error;
+	struct input_dev *visorinput_dev = NULL;
+	int xres, yres;
+	struct fb_info *fb0;
+
+	visorinput_dev = input_allocate_device();
+	if (!visorinput_dev)
+			return NULL;
+
+	visorinput_dev->name = "visor Mouse";
+	visorinput_dev->phys = "visormou/input0";
+	visorinput_dev->id.bustype = BUS_HOST;
+	visorinput_dev->id.vendor = 0x0001;
+	visorinput_dev->id.product = 0x0001;
+	visorinput_dev->id.version = 0x0100;
+
+	visorinput_dev->evbit[0] = BIT_MASK(EV_KEY) | BIT_MASK(EV_ABS);
+	set_bit(BTN_LEFT, visorinput_dev->keybit);
+	set_bit(BTN_RIGHT, visorinput_dev->keybit);
+	set_bit(BTN_MIDDLE, visorinput_dev->keybit);
+
+	if (registered_fb[0]) {
+		fb0 = registered_fb[0];
+		xres = fb0->var.xres_virtual;
+		yres = fb0->var.yres_virtual;
+	} else {
+		xres = PIXELS_ACROSS_DEFAULT;
+		yres = PIXELS_DOWN_DEFAULT;
+	}
+	input_set_abs_params(visorinput_dev, ABS_X, 0, xres, 0, 0);
+	input_set_abs_params(visorinput_dev, ABS_Y, 0, yres, 0, 0);
+
+	error = input_register_device(visorinput_dev);
+	if (error) {
+		input_free_device(visorinput_dev);
+		return NULL;
+	}
+
+	/* Sending top-left and bottom-right positions is ABSOLUTELY
+	 * REQUIRED if we want X to move the mouse to the exact points
+	 * we tell it.  I have NO IDEA why.
+	 */
+	input_report_abs(visorinput_dev, ABS_X, 0);
+	input_report_abs(visorinput_dev, ABS_Y, 0);
+	input_sync(visorinput_dev);
+	input_report_abs(visorinput_dev, ABS_X, xres - 1);
+	input_report_abs(visorinput_dev, ABS_Y, yres - 1);
+	input_sync(visorinput_dev);
+
+	return visorinput_dev;
+}
+
+static struct input_dev *
+register_client_wheel(void)
+{
+	int error;
+	struct input_dev *visorinput_dev = NULL;
+
+	visorinput_dev = input_allocate_device();
+	if (!visorinput_dev)
+		return NULL;
+
+	visorinput_dev->name = "visor Wheel";
+	visorinput_dev->phys = "visorwhl/input0";
+	visorinput_dev->id.bustype = BUS_HOST;
+	visorinput_dev->id.vendor = 0x0001;
+	visorinput_dev->id.product = 0x0001;
+	visorinput_dev->id.version = 0x0100;
+
+	/* We need to lie a little to prevent the evdev driver "Don't
+	 * know how to use device" error.  (evdev erroneously thinks
+	 * that a device without an X and Y axis is useless.)
+	 */
+	visorinput_dev->evbit[0] = BIT_MASK(EV_REL) |
+			/*lie */   BIT_MASK(EV_KEY);
+	visorinput_dev->relbit[0] = BIT_MASK(REL_WHEEL) |
+			/*lie */    BIT_MASK(REL_X) |
+			/*lie */    BIT_MASK(REL_Y);
+	set_bit(BTN_LEFT, visorinput_dev->keybit);	/*lie */
+	set_bit(BTN_RIGHT, visorinput_dev->keybit);	/*lie */
+	set_bit(BTN_MIDDLE, visorinput_dev->keybit);	/*lie */
+
+	error = input_register_device(visorinput_dev);
+	if (error) {
+		input_free_device(visorinput_dev);
+		return NULL;
+	}
+	return visorinput_dev;
+}
+
+static void
+do_key(struct input_dev *inpt, int keycode, int down)
+{
+	input_report_key(inpt, keycode, down);
+}
+
+/* Make it so the current locking state of the locking key indicated by
+ * <keycode> is as indicated by <desired_state> (1=locked, 0=unlocked).
+ */
+static void
+handle_locking_key(struct input_dev *visorinput_dev,
+		   int keycode, int desired_state)
+{
+	int led;
+	char *sled;
+
+	switch (keycode) {
+	case KEY_CAPSLOCK:
+		led = LED_CAPSL;
+		sled = "CAP";
+		break;
+	case KEY_SCROLLLOCK:
+		led = LED_SCROLLL;
+		sled = "SCR";
+		break;
+	case KEY_NUMLOCK:
+		led = LED_NUML;
+		sled = "NUM";
+		break;
+	default:
+		led = -1;
+		break;
+	}
+	if (led >= 0) {
+		int old_state = (test_bit(led, visorinput_dev->led) != 0);
+
+		if (old_state != desired_state) {
+			do_key(visorinput_dev, keycode, 1);
+			do_key(visorinput_dev, keycode, 0);
+			input_sync(visorinput_dev);
+			__change_bit(led, visorinput_dev->led);
+		}
+	}
+}
+
+/* <scancode> is either a 1-byte scancode, or an extended 16-bit scancode
+ * with 0xE0 in the low byte and the extended scancode value in the next
+ * higher byte.
+ */
+static int
+scancode_to_keycode(int scancode)
+{
+	int keycode;
+
+	if (scancode > 0xff)
+		keycode = ext_keycode[(scancode >> 8) & 0xff];
+	else
+		keycode = visorkbd_keycode[scancode];
+	return keycode;
+}
+
+static int
+calc_button(int x)
+{
+	switch (x) {
+	case 1:
+		return BTN_LEFT;
+	case 2:
+		return BTN_MIDDLE;
+	case 3:
+		return BTN_RIGHT;
+	default:
+		return -1;
+	}
+}
+
+/* This is used only when this driver is active as an input driver in the
+ * client guest partition.  It is called periodically so we can obtain inputs
+ * from the channel, and deliver them to the guest OS.
+ */
+static void
+visorhid_channel_interrupt(struct visor_device *dev)
+{
+	struct ultra_inputreport r;
+	int scancode, keycode;
+	struct input_dev *visorinput_dev;
+	struct input_dev *visorinput_dev2;
+	int xmotion, ymotion, zmotion, button;
+	int i;
+	bool locked = FALSE;
+
+	struct visorhid_devdata *devdata = dev_get_drvdata(&dev->device);
+
+	if (!devdata)
+			goto cleanups;
+
+	down_write(&devdata->lock_visor_dev);
+	locked = TRUE;
+	if (devdata->paused) /* don't touch device/channel when paused */
+			goto cleanups;
+
+	visorinput_dev = devdata->visorinput_dev;
+	if (!visorinput_dev)
+			goto cleanups;
+
+	visorinput_dev2 = devdata->visorinput_dev2;
+	while (visorchannel_signalremove(dev->visorchannel, 0, &r)) {
+		scancode = r.activity.arg1;
+		keycode = scancode_to_keycode(scancode);
+		switch (r.activity.action) {
+		case inputaction_key_down:
+			do_key(visorinput_dev, keycode, 1);
+			input_sync(visorinput_dev);
+			break;
+		case inputaction_key_up:
+			do_key(visorinput_dev, keycode, 0);
+			input_sync(visorinput_dev);
+			break;
+		case inputaction_key_down_up:
+			do_key(visorinput_dev, keycode, 1);
+			do_key(visorinput_dev, keycode, 0);
+			input_sync(visorinput_dev);
+			break;
+		case inputaction_set_locking_key_state:
+			handle_locking_key(visorinput_dev, keycode,
+					   r.activity.arg2);
+			break;
+		case inputaction_xy_motion:
+			xmotion = r.activity.arg1;
+			ymotion = r.activity.arg2;
+			input_report_abs(visorinput_dev, ABS_X, xmotion);
+			input_report_abs(visorinput_dev, ABS_Y, ymotion);
+			input_sync(visorinput_dev);
+			break;
+		case inputaction_mouse_button_down:
+			button = calc_button(r.activity.arg1);
+			if (button < 0)
+				break;
+			input_report_key(visorinput_dev, button, 1);
+			input_sync(visorinput_dev);
+			break;
+		case inputaction_mouse_button_up:
+			button = calc_button(r.activity.arg1);
+			if (button < 0)
+				break;
+			input_report_key(visorinput_dev, button, 0);
+			input_sync(visorinput_dev);
+			break;
+		case inputaction_mouse_button_click:
+			button = calc_button(r.activity.arg1);
+			if (button < 0)
+				break;
+			input_report_key(visorinput_dev, button, 1);
+
+			input_sync(visorinput_dev);
+			input_report_key(visorinput_dev, button, 0);
+			input_sync(visorinput_dev);
+			break;
+		case inputaction_mouse_button_dclick:
+			button = calc_button(r.activity.arg1);
+			if (button < 0)
+				break;
+			for (i = 0; i < 2; i++) {
+				input_report_key(visorinput_dev, button, 1);
+				input_sync(visorinput_dev);
+				input_report_key(visorinput_dev, button, 0);
+				input_sync(visorinput_dev);
+			}
+			break;
+		case inputaction_wheel_rotate_away:
+			if (!visorinput_dev2)
+					goto cleanups;
+			zmotion = r.activity.arg1;
+			input_report_rel(visorinput_dev2, REL_WHEEL, 1);
+			input_sync(visorinput_dev2);
+			break;
+		case inputaction_wheel_rotate_toward:
+			if (!visorinput_dev2)
+					goto cleanups;
+			zmotion = r.activity.arg1;
+			input_report_rel(visorinput_dev2, REL_WHEEL, -1);
+			input_sync(visorinput_dev2);
+			break;
+		}
+	}
+
+cleanups:
+	if (locked) {
+		up_write(&devdata->lock_visor_dev);
+		locked = FALSE;
+	}
+}
+
+static int
+visorhid_pause(struct visor_device *dev,
+	       visorbus_state_complete_func complete_func)
+{
+	bool locked = FALSE;
+	int rc = -1;
+	struct visorhid_devdata *devdata = dev_get_drvdata(&dev->device);
+
+	if (!devdata)
+			goto cleanups;
+
+	down_write(&devdata->lock_visor_dev);
+	locked = TRUE;
+	if (devdata->paused)
+			goto cleanups;
+	/* SLEEP(5); test */
+	devdata->paused = TRUE;
+	complete_func(dev, 0);
+	rc = 0;
+cleanups:
+	if (locked) {
+		up_write(&devdata->lock_visor_dev);
+		locked = FALSE;
+	}
+	return rc;
+}
+
+static int
+visorhid_resume(struct visor_device *dev,
+		visorbus_state_complete_func complete_func)
+{
+	bool locked = FALSE;
+	int rc = -1;
+	struct visorhid_devdata *devdata = dev_get_drvdata(&dev->device);
+
+	if (!devdata)
+			goto cleanups;
+	down_write(&devdata->lock_visor_dev);
+	locked = TRUE;
+	if (!devdata->paused)
+			goto cleanups;
+	devdata->paused = FALSE;
+	complete_func(dev, 0);
+	rc = 0;
+cleanups:
+	if (locked) {
+		up_write(&devdata->lock_visor_dev);
+		locked = FALSE;
+	}
+	return rc;
+}
+
+static int
+visorhid_init(void)
+{
+	int rc = 0;
+
+	spin_lock_init(&devnopool_lock);
+	dev_no_pool = kzalloc(BITS_TO_LONGS(MAXDEVICES), GFP_KERNEL);
+	if (!dev_no_pool) {
+		rc = -1;
+		goto cleanups;
+	}
+	visorbus_register_visor_driver(&visorhid_driver);
+
+cleanups:
+	if (rc < 0)
+		visorhid_cleanup_guts();
+	return rc;
+}
+
+static void
+visorhid_cleanup(void)
+{
+	visorhid_cleanup_guts();
+}
+
+module_param_named(debug, visorhid_debug, int, S_IRUGO);
+MODULE_PARM_DESC(visorhid_debug, "1 to debug");
+int visorhid_debug;
+
+module_param_named(debugref, visorhid_debugref, int, S_IRUGO);
+MODULE_PARM_DESC(visorhid_debugref, "1 to debug reference counts");
+int visorhid_debugref;
+
+module_init(visorhid_init);
+module_exit(visorhid_cleanup);
+
+MODULE_AUTHOR("Unisys");
+MODULE_LICENSE("GPL");
+MODULE_DESCRIPTION("sPAR human input driver for guest Linux: ver " VERSION);
+MODULE_VERSION(VERSION);
